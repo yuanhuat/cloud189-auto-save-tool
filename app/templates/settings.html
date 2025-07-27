@@ -3,45 +3,254 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>设置</title>
+    <title>⚙️ 系统设置 - 云盘自动保存</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>设置</h1>
-        
-        {% if message %}
-        <div class="message">{{ message }}</div>
-        {% endif %}
-        
-        <form action="/settings" method="post">
-            <label for="project_address">项目地址:</label>
-            <input type="text" id="project_address" name="project_address" 
-                   placeholder="请输入项目地址" 
-                   value="{{ settings.project_address if settings else '' }}">
-            <label for="api_key">API Key:</label>
-            <input type="text" id="api_key" name="api_key" 
-                   placeholder="请输入API Key" 
-                   value="{{ settings.api_key if settings else '' }}">
-            <button type="submit">保存设置</button>
-        </form>
-        
-        <!-- 账号信息显示区域 -->
-        {% if accounts %}
-        <div class="accounts-section">
-            <h3>账号信息</h3>
-            <div class="accounts-list">
-                {% for account in accounts %}
-                <div class="account-item">
-                    <span class="account-id">ID: {{ account.id }}</span>
-                    <span class="account-username">用户名: {{ account.username }}</span>
+    <div class="app-container">
+        <!-- 应用头部 -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 class="app-title">⚙️ 系统设置</h1>
+                    <p class="app-subtitle">配置项目连接和系统参数</p>
                 </div>
-                {% endfor %}
+                <div class="header-right">
+                    <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                        🔙 返回首页
+                    </a>
+                </div>
             </div>
-        </div>
-        {% endif %}
-        
-        <p><a href="{{ url_for('index') }}">返回首页</a></p>
+        </header>
+
+        <!-- 主要内容 -->
+        <main class="main-content">
+            <!-- 消息提示 -->
+            {% if message %}
+            <div class="message-container">
+                <div class="message success">
+                    <span class="message-icon">✅</span>
+                    <span class="message-text">{{ message }}</span>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 设置表单 -->
+            <div class="settings-container">
+                <form action="/settings" method="post" class="settings-form">
+                    <!-- API配置 -->
+                    <div class="form-section">
+                        <h3 class="section-title">🔗 API配置</h3>
+                        <div class="settings-grid">
+                            <div class="input-group">
+                                <label for="project_address">项目地址</label>
+                                <input type="text" id="project_address" name="project_address" 
+                                       placeholder="请输入项目地址，例如: http://localhost:3000" 
+                                       value="{{ settings.project_address if settings else '' }}" required>
+                                <small class="form-text">目标项目的访问地址</small>
+                            </div>
+                            <div class="input-group">
+                                <label for="api_key">API密钥</label>
+                                <input type="password" id="api_key" name="api_key" 
+                                       placeholder="请输入API密钥" 
+                                       value="{{ settings.api_key if settings else '' }}" required>
+                                <small class="form-text">用于API认证的密钥</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 连接测试 -->
+                    <div class="form-section">
+                        <h3 class="section-title">🔍 连接测试</h3>
+                        <div class="test-connection-group">
+                            <button type="button" class="btn btn-secondary" onclick="testConnection()">
+                                🧪 测试连接
+                            </button>
+                            <div id="connection-status" class="connection-status"></div>
+                        </div>
+                    </div>
+
+                    <!-- 提交按钮 -->
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success btn-large">
+                            💾 保存设置
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 账号信息 -->
+            {% if accounts %}
+            <div class="accounts-section">
+                <div class="section-header">
+                    <h3 class="section-title">👥 账号信息</h3>
+                    <button type="button" class="btn btn-secondary" onclick="refreshAccounts()">
+                        🔄 刷新账号
+                    </button>
+                </div>
+                
+                <div class="accounts-grid">
+                    {% for account in accounts %}
+                    <div class="account-card">
+                        <div class="account-header">
+                            <div class="account-avatar">
+                                <span class="avatar-text">{{ account.username[0].upper() }}</span>
+                            </div>
+                            <div class="account-info">
+                                <h4 class="account-name">{{ account.username }}</h4>
+                                <span class="account-id">ID: {{ account.id }}</span>
+                            </div>
+                            <div class="account-status">
+                                <span class="status-badge active">✅ 活跃</span>
+                            </div>
+                        </div>
+                        <div class="account-details">
+                            <div class="detail-item">
+                                <span class="detail-label">账号类型:</span>
+                                <span class="detail-value">天翼云盘</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">创建时间:</span>
+                                <span class="detail-value">{{ account.createdAt if account.createdAt else '未知' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="no-accounts-section">
+                <div class="empty-state">
+                    <div class="empty-icon">👤</div>
+                    <h3>暂无账号信息</h3>
+                    <p>请先配置正确的项目地址和API密钥，然后刷新账号信息</p>
+                    <button type="button" class="btn btn-primary" onclick="refreshAccounts()">
+                        🔄 刷新账号
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 系统信息 -->
+            <div class="system-info-section">
+                <h3 class="section-title">ℹ️ 系统信息</h3>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-icon">🔧</div>
+                        <div class="info-content">
+                            <h4>应用版本</h4>
+                            <p>v1.0.0</p>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-icon">📊</div>
+                        <div class="info-content">
+                            <h4>连接状态</h4>
+                            <p id="connection-info">未连接</p>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-icon">⏰</div>
+                        <div class="info-content">
+                            <h4>运行时间</h4>
+                            <p id="uptime">--</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
+
+    <script>
+        // 测试连接
+        async function testConnection() {
+            const projectAddress = document.getElementById('project_address').value;
+            const apiKey = document.getElementById('api_key').value;
+            const statusDiv = document.getElementById('connection-status');
+            
+            if (!projectAddress || !apiKey) {
+                showStatus('请先填写项目地址和API密钥', 'error');
+                return;
+            }
+            
+            showStatus('正在测试连接...', 'loading');
+            
+            try {
+                const response = await fetch('/api/accounts');
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus(`✅ 连接成功！找到 ${data.data.length} 个账号`, 'success');
+                    updateConnectionInfo('已连接');
+                } else {
+                    showStatus('❌ 连接失败：' + (data.message || '未知错误'), 'error');
+                    updateConnectionInfo('连接失败');
+                }
+            } catch (error) {
+                showStatus('❌ 连接失败：' + error.message, 'error');
+                updateConnectionInfo('连接失败');
+            }
+        }
+        
+        // 显示状态
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('connection-status');
+            statusDiv.className = `connection-status ${type}`;
+            statusDiv.textContent = message;
+        }
+        
+        // 更新连接信息
+        function updateConnectionInfo(status) {
+            const connectionInfo = document.getElementById('connection-info');
+            if (connectionInfo) {
+                connectionInfo.textContent = status;
+            }
+        }
+        
+        // 刷新账号
+        async function refreshAccounts() {
+            const statusDiv = document.getElementById('connection-status');
+            showStatus('正在刷新账号信息...', 'loading');
+            
+            try {
+                const response = await fetch('/api/refresh-accounts');
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus('✅ 账号信息刷新成功', 'success');
+                    // 刷新页面以显示最新账号信息
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    showStatus('❌ 刷新失败：' + (data.message || '未知错误'), 'error');
+                }
+            } catch (error) {
+                showStatus('❌ 刷新失败：' + error.message, 'error');
+            }
+        }
+        
+        // 页面加载时更新运行时间
+        window.onload = function() {
+            updateUptime();
+            setInterval(updateUptime, 1000);
+        };
+        
+        // 更新运行时间
+        function updateUptime() {
+            const uptimeElement = document.getElementById('uptime');
+            if (uptimeElement) {
+                const now = new Date();
+                const startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+                const diff = now - startTime;
+                
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                
+                uptimeElement.textContent = `${hours}h ${minutes}m ${seconds}s`;
+            }
+        }
+    </script>
 </body>
 </html>
