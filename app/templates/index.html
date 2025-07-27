@@ -942,11 +942,23 @@
             results.forEach(resource => {
                 const li = document.createElement('li');
                 li.className = 'resource-item';
-                // 假设每个资源至少有一个 cloudLink，并且我们只显示第一个链接
-                const shareUrl = resource.cloudLinks && resource.cloudLinks.length > 0 ? resource.cloudLinks[0].link : '#';
+                
+                // 解析分享链接和访问码
+                let shareUrl = '#';
+                let accessCode = '';
+                if (resource.cloudLinks && resource.cloudLinks.length > 0) {
+                    const fullLink = resource.cloudLinks[0].link;
+                    const match = fullLink.match(/(https:\/\/cloud\.189\.cn\/t\/[a-zA-Z0-9]+)(?:%EF%BC%88%E8%AE%BF%E9%97%AE%E7%A0%81%EF%BC%9A([a-zA-Z0-9]+)%EF%BC%89)?/);
+                    if (match) {
+                        shareUrl = match[1];
+                        accessCode = match[2] || '';
+                    } else {
+                        shareUrl = fullLink; // 如果不匹配，使用原始链接
+                    }
+                }
                 
                 // 构建 TMDB 信息显示部分
-                let tmdbPosterHtml = resource.tmdb_poster_url ? `<img src="${resource.tmdb_poster_url}" alt="影片封面" class="tmdb-poster">` : '';
+                let tmdbPosterHtml = resource.tmdb_poster_url ? `<img src="${resource.tmdb_poster_url}" alt="影片封面" class="tmdb-poster" onclick="openImageModal('${resource.tmdb_poster_url}')">` : '';
                 let tmdbOverviewHtml = resource.tmdb_overview ? `<p class="tmdb-overview"><strong>简介:</strong> ${resource.tmdb_overview}</p>` : '';
                 let tmdbReleaseDateHtml = resource.tmdb_release_date ? `<p class="tmdb-release-date"><strong>上映日期:</strong> ${resource.tmdb_release_date}</p>` : '';
 
@@ -966,7 +978,7 @@
                                 </div>
                                 <div class="resource-actions">
                                     <button class="btn btn-sm btn-info" onclick="copyToClipboard('${shareUrl}')">复制链接</button>
-                                    <button class="btn btn-sm btn-success" onclick="fillShareLinkAndSearch('${shareUrl}')">填充到分享链接</button>
+                                    <button class="btn btn-sm btn-success" onclick="fillShareLinkAndSearch('${shareUrl}', '${accessCode}')">填充到分享链接</button>
                                 </div>
                             </div>
                         </div>
@@ -989,17 +1001,47 @@
         }
 
         // 辅助函数：填充分享链接到任务创建表单
-        function fillShareLinkAndSearch(shareUrl) {
+        function fillShareLinkAndSearch(shareUrl, accessCode = '') {
             document.getElementById('share_link').value = shareUrl;
+            document.getElementById('access_code').value = accessCode;
             // 切换到单个链接模式
             document.querySelector('input[name="input_mode"][value="single"]').checked = true;
             switchInputMode();
             // 滚动到任务创建表单
             document.getElementById('taskForm').scrollIntoView({ behavior: 'smooth' });
-            showMessage('分享链接已填充到任务创建表单。', 'info');
+            showMessage('分享链接已填充到任务创建表单。' + (accessCode ? ` 访问码: ${accessCode}` : ''), 'info');
         }
 
 
+    </script>
+
+    <!-- 图片放大模态框 -->
+    <div id="imageModal" class="image-modal-overlay" style="display: none;">
+        <div class="image-modal-content">
+            <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
+            <img id="enlargedImage" src="" alt="放大图片" class="enlarged-image">
+        </div>
+    </div>
+
+    <script>
+        // 新增图片模态框控制函数
+        function openImageModal(src) {
+            document.getElementById('enlargedImage').src = src;
+            document.getElementById('imageModal').style.display = 'flex';
+            document.body.style.overflow = 'hidden'; // 防止背景滚动
+        }
+
+        function closeImageModal() {
+            document.getElementById('imageModal').style.display = 'none';
+            document.body.style.overflow = ''; // 恢复背景滚动
+        }
+
+        // 点击模态框背景关闭
+        document.getElementById('imageModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeImageModal();
+            }
+        });
     </script>
 </body>
 </html>
