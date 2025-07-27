@@ -428,6 +428,7 @@ def parse_share_link(project_address, api_key, share_link, account_id, access_co
         return {'success': False, 'message': f'解析分享链接时出错: {str(e)}'}
 
 @app.route('/api/directories/<int:account_id>')
+@login_required
 def get_directory_tree_api(account_id):
     """获取目录树的API接口"""
     settings = get_settings()
@@ -439,6 +440,7 @@ def get_directory_tree_api(account_id):
     return jsonify(result)
 
 @app.route('/api/parse-share', methods=['POST'])
+@login_required
 def parse_share():
     """解析分享链接获取所有可用目录"""
     try:
@@ -462,6 +464,7 @@ def parse_share():
         return jsonify({'success': False, 'message': f'解析分享链接时出错: {str(e)}'})
 
 @app.route('/', methods=['GET', 'POST'])
+@login_required
 def index():
     """渲染首页，包含分享链接填写和配置入口"""
     if request.method == 'POST':
@@ -704,6 +707,7 @@ def delete_account_directory_route(mapping_id):
     return redirect(url_for('account_directories'))
 
 @app.route('/api/account-directory/<int:account_id>')
+@login_required
 def get_account_directory_api(account_id):
     """获取指定账号的目录映射API"""
     mapping = get_account_directory(account_id)
@@ -751,6 +755,7 @@ def settings():
     return render_template('settings.html', settings=current_settings, accounts=accounts)
 
 @app.route('/api/accounts')
+@login_required
 def get_accounts_api():
     """获取账号列表API"""
     settings = get_settings()
@@ -761,6 +766,7 @@ def get_accounts_api():
     return jsonify({'success': True, 'data': accounts})
 
 @app.route('/api/favorites/<int:account_id>')
+@login_required
 def get_favorites_api(account_id):
     """获取指定账号的常用目录API"""
     settings = get_settings()
@@ -771,6 +777,7 @@ def get_favorites_api(account_id):
     return jsonify({'success': True, 'data': favorites})
 
 @app.route('/api/refresh-accounts')
+@login_required
 def refresh_accounts():
     """刷新账号信息的API接口"""
     settings = get_settings()
@@ -781,6 +788,7 @@ def refresh_accounts():
     return jsonify({'success': True, 'data': accounts})
 
 @app.route('/test-directory')
+@login_required
 def test_directory():
     """目录选择测试页面"""
     return render_template('test_directory.html')
