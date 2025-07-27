@@ -7,6 +7,7 @@ import hashlib
 import secrets
 from functools import wraps
 from datetime import datetime
+import re # 导入re模块用于正则表达式
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)  # 生成随机密钥用于session
@@ -22,10 +23,18 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             project_address TEXT,
             api_key TEXT,
+            tmdb_api_key TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    
+    # 如果表已存在但没有 tmdb_api_key 字段，则添加该字段
+    try:
+        cursor.execute('ALTER TABLE settings ADD COLUMN tmdb_api_key TEXT')
+    except sqlite3.OperationalError:
+        # 字段已存在，忽略错误
+        pass
     
     # 创建用户表
     cursor.execute('''
@@ -110,21 +119,21 @@ def get_settings():
     """获取最新的设置信息"""
     conn = sqlite3.connect('settings.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT project_address, api_key FROM settings ORDER BY id DESC LIMIT 1')
+    cursor.execute('SELECT project_address, api_key, tmdb_api_key FROM settings ORDER BY id DESC LIMIT 1')
     result = cursor.fetchone()
     conn.close()
     if result:
-        return {'project_address': result[0], 'api_key': result[1]}
-    return {'project_address': '', 'api_key': ''}
+        return {'project_address': result[0], 'api_key': result[1], 'tmdb_api_key': result[2]}
+    return {'project_address': '', 'api_key': '', 'tmdb_api_key': ''}
 
-def save_settings(project_address, api_key):
+def save_settings(project_address, api_key, tmdb_api_key):
     """保存设置信息到数据库"""
     conn = sqlite3.connect('settings.db')
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO settings (project_address, api_key)
-        VALUES (?, ?)
-    ''', (project_address, api_key))
+        INSERT INTO settings (project_address, api_key, tmdb_api_key)
+        VALUES (?, ?, ?)
+    ''', (project_address, api_key, tmdb_api_key))
     conn.commit()
     conn.close()
 
@@ -868,8 +877,9 @@ def settings():
     if request.method == 'POST':
         project_address = request.form.get('project_address')
         api_key = request.form.get('api_key')
+        tmdb_api_key = request.form.get('tmdb_api_key')
         # 保存设置到数据库
-        save_settings(project_address, api_key)
+        save_settings(project_address, api_key, tmdb_api_key)
         print(f"Project Address: {project_address}, API Key: {api_key}")
         
         # 保存后立即获取账号信息
@@ -1184,30 +1194,124 @@ def execute_auto_delete():
         return {"success": False, "message": f"执行自动删除失败: {e}"}
 
 # 新增 CloudSaver 资源搜索功能
+
+def get_tmdb_info(title, api_key):
+    """根据影片标题调用TMDB API获取影片封面和简介"""
+    base_url = "https://api.themoviedb.org/3/search/movie"
+    params = {
+        'api_key': api_key,
+        'query': title,
+        'language': 'zh-CN'  # 中文结果
+    }
+    try:
+        print(f"正在请求 TMDB API，标题: {title}")
+        response = requests.get(base_url, params=params, timeout=5)
+        response.raise_for_status()  # 检查HTTP错误
+        data = response.json()
+        
+        if data and data['results']:
+            movie = data['results'][0]
+            poster_path = movie.get('poster_path')
+            overview = movie.get('overview')
+            release_date = movie.get('release_date')
+            
+            full_poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else None
+            
+            tmdb_result = {
+                'poster_url': full_poster_url,
+                'overview': overview,
+                'release_date': release_date
+            }
+            print(f"成功获取 TMDB 信息: {tmdb_result}")
+            return tmdb_result
+        print(f"TMDB API 未找到结果或数据为空，标题: {title}")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"TMDB API请求异常: {e}")
+        return None
+    except Exception as e:
+        print(f"获取TMDB信息时出错: {e}")
+        return None
+
 def search_cloudsaver_resources(project_address, keyword):
     """
     调用 CloudSaver 的资源搜索 API
-    CloudSaver 的搜索 API 使用 Bearer Token，但由于 app.py 不直接管理 CloudSaver 的登录状态和 Token，
-    我们依赖于 cloud189-auto-save 服务本身处理认证。
-    这里仅将 x-api-key 用于访问 cloud189-auto-save 服务本身的 API。
     """
     try:
         api_url = f"{project_address.rstrip('/')}/api/cloudsaver/search"
-        # 注意: 这里使用 params 传递 keyword，而不是直接拼接在 URL 中，以正确处理特殊字符
         params = {'keyword': keyword}
         
-        # 假设 cloud189-auto-save 服务本身通过 x-api-key 进行认证
         settings = get_settings()
         headers = {'x-api-key': settings.get('api_key', ''), 'Content-Type': 'application/json'}
         
         print(f"调用 CloudSaver 搜索 API: {api_url}，关键字: {keyword}")
-        response = requests.get(api_url, headers=headers, params=params, timeout=30) # 增加超时时间
+        response = requests.get(api_url, headers=headers, params=params, timeout=30)
         
         if response.status_code == 200:
             result = response.json()
             if result.get('success'):
-                print(f"CloudSaver 搜索成功，结果数量: {len(result.get('data', []))}")
-                return {'success': True, 'data': result.get('data', [])}
+                resources = result.get('data', [])
+                
+                tmdb_api_key = settings.get('tmdb_api_key')
+                print(f"从设置中获取的 TMDB API Key: {tmdb_api_key}")
+                
+                if tmdb_api_key:
+                    for resource in resources:
+                        raw_title = resource.get('title')  # 获取原始标题
+                        print(f"处理原始资源标题: {raw_title}")
+                        if raw_title:
+                            # 尝试从标题中提取干净的电影名称和年份
+                            # 移除“名称：”前缀
+                            clean_title = raw_title.replace('名称：', '').strip()
+                            
+                            # 提取年份 (例如：(2019) 或 [2019])
+                            year_match = re.search(r'[\(\[](\d{4})[\)\]]', clean_title)
+                            year = year_match.group(1) if year_match else None
+                            
+                            # 移除所有括号及其内容，包含中文括号
+                            clean_title = re.sub(r'[\(\[【《].*?[\)\]】》]', '', clean_title).strip()
+                            
+                            # 移除分辨率、编码、音轨、字幕、版本等信息，不区分大小写
+                            clean_title = re.sub(r'\s*(4K|原盘|REMUX|杜比视界|内封|简英双语字幕|国英双音|国粤语|中英|中字|特效字幕|豆瓣\s*\d+\.\d+|字幕|双语|修正|熟肉|生肉|全集|季|更新至|集|EP\d+|S\d+E\d+|Web|DV|BluRay|HDTV|HR|MKV|MP4|AVC|x264|x265|HEVC|AAC|AC3|DTS|TrueHD|Atmos|DD\+|FLAC|WEB-DL|HDR|SDR|IMAX|VC-1|H.264|H.265|AV1|LPCM|Opus|2.0|5.1|7.1|ISO|HFR|CGI|VFX|FHD|UHD|HDR10|DolbyVision|DTS-HD|MA|Hi-Res|Lossless|24p|60p|FPS|DVDRip|BDRip|WEBRip|HDRip|XviD|DivX|VP9|AV01|DolbyAudio|MP3|AC3|EAC3|FLAC|OGG|WAV|AIFF|3D|2D|EXTENDED|THEATRICAL|UNCUT|DIRECTORS.CUT|FINAL.CUT|IMAX.EDITION|COLLECTORS.EDITION|LIMITED.EDITION|Anniversary.Edition|Criterion.Collection|Reboot|Remake|Live.Action|Animated|Part\s*\d|Disc\s*\d|Volume\s*\d|E\d+|S\d+|OVA|OAD|SP|NC|OP|ED|PV|CM|OST|BGM|Dub|Sub|Multi|Dual.Audio|Fan.Dub|Fan.Sub|Complete|Uncensored|R18|R21|Unrated|Retail|DIY|Upscaled|Upscale|Upscale.AI|x264-CtrlHD|x265-RARBG|DTS-HD.MA.5.1|TrueHD.7.1.Atmos|EAC3.5.1|AAC.2.0|mp4-x264|mkv-x265|WEBRip-RARBG|WEB-DL-CtrlHD|HDRip-XviD|BDRip-AVC|BluRay-Remux|UHD-BD|BDMV|BD25|BD50|BD66|BD100|Mini.BD|Micro.BD|Jap.Dub|Eng.Dub|Jap.Sub|Eng.Sub|Chs.Sub|Cht.Sub|Jap.CHS|Jap.ENG|CHS.ENG|简繁日文字幕|简繁英文字幕|简繁中字|简中|繁中|日文|英文|粤语|普通话|国语|字幕组|压制|内嵌|硬字幕|软字幕|剧场版|OVA版|SP版|未删减|无修|特典|附录|花絮|OST|CD|BD|DVD|DL|RAW|Fin)\s*', '', clean_title, flags=re.IGNORECASE).strip()
+
+                            # 移除文件名后缀（如果存在）
+                            clean_title = re.sub(r'\.(mkv|mp4|avi|rmvb|flv|wmv|mov|ts|m2ts|webm|iso|srt|ass|ssa|idx|sub|psd|vob|ifo|bup|img|cue|bin|mdf|mds|nrg|ccd|sub|ape|flac|wav|ogg|mp3|aac|wma|ac3|dts|mka|m4a|tta|wv|opus|exe|zip|rar|7z|tar|gz|bz2|xz|iso|img|cue|bin|ccd|sub|nrg|mdf|mds|vob|ifo|bup|srt|ass|ssa|idx|sub|idx|sub)$/i', '', clean_title, flags=re.IGNORECASE).strip()
+
+                            # 如果清洗后标题以“.”结尾，移除它
+                            if clean_title.endswith('.'):
+                                clean_title = clean_title[:-1].strip()
+
+                            # 移除末尾可能存在的空白字符和特殊符号，如 -, ., _
+                            clean_title = clean_title.rstrip(' -._').strip()
+
+                            # 移除多余的空格
+                            clean_title = re.sub(r'\s+', ' ', clean_title).strip()
+
+                            # 再次检查清洗后的标题是否为空
+                            if clean_title:
+                                # 构建TMDB查询标题，优先使用年份
+                                tmdb_query_title = clean_title
+                                if year: # 如果提取到了年份，将年份添加到查询中
+                                    tmdb_query_title = f"{clean_title} {year}"
+                                
+                                print(f"TMDB 查询标题: {tmdb_query_title}")
+                                tmdb_info = get_tmdb_info(tmdb_query_title, tmdb_api_key)
+                                if tmdb_info:
+                                    resource['tmdb_poster_url'] = tmdb_info.get('poster_url')
+                                    resource['tmdb_overview'] = tmdb_info.get('overview')
+                                    resource['tmdb_release_date'] = tmdb_info.get('release_date')
+                                    print(f"已为资源 \"{raw_title}\" 添加 TMDB 信息。")
+                                else:
+                                    print(f"未能为资源 \"{raw_title}\" 获取 TMDB 信息。")
+                            else:
+                                print(f"清洗后标题为空，跳过 TMDB 查询。原始标题: {raw_title}")
+                        else:
+                            print(f"资源缺少 'title' 字段，跳过 TMDB 查询。")
+                else:
+                    print("未配置 TMDB API Key，跳过 TMDB 信息获取。")
+                
+                print(f"CloudSaver 搜索成功，结果数量: {len(resources)}")
+                return {'success': True, 'data': resources}
             else:
                 print(f"CloudSaver 搜索 API 返回错误: {result.get('error', '未知错误')}")
                 return {'success': False, 'message': result.get('error', 'CloudSaver 搜索失败')}

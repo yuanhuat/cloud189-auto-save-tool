@@ -92,6 +92,13 @@
                                        value="{{ settings.api_key if settings else '' }}" required>
                                 <small class="form-text">用于API认证的密钥</small>
                             </div>
+                            <div class="input-group">
+                                <label for="tmdb_api_key">TMDB API密钥</label>
+                                <input type="password" id="tmdb_api_key" name="tmdb_api_key" 
+                                       placeholder="请输入TMDB API密钥" 
+                                       value="{{ settings.tmdb_api_key if settings else '' }}">
+                                <small class="form-text">用于获取影片封面和简介的TMDB API密钥</small>
+                            </div>
                         </div>
                     </div>
 

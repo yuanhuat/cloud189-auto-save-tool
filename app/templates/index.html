@@ -945,12 +945,32 @@
                 // 假设每个资源至少有一个 cloudLink，并且我们只显示第一个链接
                 const shareUrl = resource.cloudLinks && resource.cloudLinks.length > 0 ? resource.cloudLinks[0].link : '#';
                 
+                // 构建 TMDB 信息显示部分
+                let tmdbPosterHtml = resource.tmdb_poster_url ? `<img src="${resource.tmdb_poster_url}" alt="影片封面" class="tmdb-poster">` : '';
+                let tmdbOverviewHtml = resource.tmdb_overview ? `<p class="tmdb-overview"><strong>简介:</strong> ${resource.tmdb_overview}</p>` : '';
+                let tmdbReleaseDateHtml = resource.tmdb_release_date ? `<p class="tmdb-release-date"><strong>上映日期:</strong> ${resource.tmdb_release_date}</p>` : '';
+
                 li.innerHTML = `
-                    <span class="resource-name">${resource.title || '无标题'}</span>
-                    <span class="resource-actions">
-                        <button class="btn btn-sm btn-info" onclick="copyToClipboard('${shareUrl}')">复制链接</button>
-                        <button class="btn btn-sm btn-success" onclick="fillShareLinkAndSearch('${shareUrl}')">填充到分享链接</button>
-                    </span>
+                    <div class="resource-content">
+                        <div class="resource-header">
+                            <span class="resource-name">${resource.title || '无标题'}</span>
+                        </div>
+                        <div class="resource-body">
+                            <div class="resource-left">
+                                ${tmdbPosterHtml}
+                            </div>
+                            <div class="resource-right">
+                                <div class="resource-details">
+                                    ${tmdbOverviewHtml}
+                                    ${tmdbReleaseDateHtml}
+                                </div>
+                                <div class="resource-actions">
+                                    <button class="btn btn-sm btn-info" onclick="copyToClipboard('${shareUrl}')">复制链接</button>
+                                    <button class="btn btn-sm btn-success" onclick="fillShareLinkAndSearch('${shareUrl}')">填充到分享链接</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 `;
                 ul.appendChild(li);
             });
