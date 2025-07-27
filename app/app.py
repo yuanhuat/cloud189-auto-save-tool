@@ -110,35 +110,30 @@ def get_favorites(project_address, api_key, account_id):
         print(f"获取常用目录时出错: {e}")
         return []
 
-def create_task(project_address, api_key, share_link, account_id, target_folder_id, target_folder_path, overwrite_folder=False):
+def create_task(project_address, api_key, share_link, account_id, target_folder_id, target_folder_path, overwrite_folder=False, selected_folders=None):
     """调用API创建任务"""
     try:
-        # 构建API URL
         api_url = f"{project_address.rstrip('/')}/api/tasks"
-        
-        # 设置请求头
         headers = {
             'x-api-key': api_key,
             'Content-Type': 'application/json'
         }
-        
-        # 请求数据 - 使用正确的参数名称
         data = {
             'shareLink': share_link,
             'accountId': int(account_id),
             'targetFolderId': target_folder_id,
-            'targetFolder': target_folder_path, # 添加targetFolder参数，使用解析出的路径
-            'overwriteFolder': overwrite_folder # 添加overwriteFolder参数
+            'targetFolder': target_folder_path,
+            'overwriteFolder': overwrite_folder
         }
         
+        # 如果提供了选中的文件夹，添加到请求中
+        if selected_folders:
+            data['selectedFolders'] = selected_folders
+            
         print(f"发送任务创建请求: {data}")
-        
-        # 发送POST请求
         response = requests.post(api_url, headers=headers, json=data, timeout=10)
-        
         print(f"API响应状态码: {response.status_code}")
         print(f"API响应内容: {response.text}")
-        
         if response.status_code == 200:
             result = response.json()
             if result.get('success'):
@@ -147,43 +142,61 @@ def create_task(project_address, api_key, share_link, account_id, target_folder_
                 return {'success': False, 'message': result.get('error', '任务创建失败')}
         else:
             return {'success': False, 'message': f'API请求失败，状态码: {response.status_code}'}
-            
     except Exception as e:
         print(f"创建任务时出错: {e}")
         return {'success': False, 'message': f'创建任务时出错: {str(e)}'}
 
-def get_directory_tree(project_address, api_key, account_id, folder_id="-11"):
+def get_directory_tree(project_address, api_key, account_id, folder_id):
     """调用API获取目录树"""
     try:
-        # 构建API URL - 使用正确的folders接口
-        api_url = f"{project_address.rstrip('/')}/api/folders/{account_id}"
-        
-        # 设置请求头
+        api_url = f"{project_address.rstrip('/')}/api/folders/{account_id}?folderId={folder_id}"
+        headers = {
+            'x-api-key': api_key
+        }
+        response = requests.get(api_url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('success'):
+                return {'success': True, 'data': result.get('data', [])}
+            else:
+                return {'success': False, 'message': result.get('error', '获取目录树失败')}
+        else:
+            return {'success': False, 'message': f'API请求失败，状态码: {response.status_code}'}
+    except Exception as e:
+        print(f"获取目录树时出错: {e}")
+        return {'success': False, 'message': f'获取目录树时出错: {str(e)}'}
+
+def parse_share_link(project_address, api_key, share_link, account_id, access_code=None):
+    """解析分享链接获取所有可用目录"""
+    try:
+        api_url = f"{project_address.rstrip('/')}/api/share/parse"
         headers = {
             'x-api-key': api_key,
             'Content-Type': 'application/json'
         }
-        
-        # 请求参数
-        params = {'folderId': folder_id}
-        
-        # 发送GET请求
-        response = requests.get(api_url, headers=headers, params=params, timeout=10)
+        data = {
+            'shareLink': share_link,
+            'accountId': int(account_id)
+        }
+        if access_code:
+            data['accessCode'] = access_code
+            
+        print(f"解析分享链接: {data}")
+        response = requests.post(api_url, headers=headers, json=data, timeout=10)
+        print(f"解析响应状态码: {response.status_code}")
+        print(f"解析响应内容: {response.text}")
         
         if response.status_code == 200:
-            data = response.json()
-            if data.get('success'):
-                return data.get('data', [])
+            result = response.json()
+            if result.get('success'):
+                return {'success': True, 'data': result.get('data', [])}
             else:
-                print(f"API返回错误: {data}")
-                return []
+                return {'success': False, 'message': result.get('error', '解析分享链接失败')}
         else:
-            print(f"API请求失败，状态码: {response.status_code}")
-            return []
-            
+            return {'success': False, 'message': f'API请求失败，状态码: {response.status_code}'}
     except Exception as e:
-        print(f"获取目录树时出错: {e}")
-        return []
+        print(f"解析分享链接时出错: {e}")
+        return {'success': False, 'message': f'解析分享链接时出错: {str(e)}'}
 
 @app.route('/api/directories/<int:account_id>')
 def get_directory_tree_api(account_id):
@@ -195,6 +208,29 @@ def get_directory_tree_api(account_id):
     folder_id = request.args.get('folderId', '-11')
     directories = get_directory_tree(settings['project_address'], settings['api_key'], account_id, folder_id)
     return jsonify({'success': True, 'data': directories})
+
+@app.route('/api/parse-share', methods=['POST'])
+def parse_share():
+    """解析分享链接获取所有可用目录"""
+    try:
+        data = request.get_json()
+        share_link = data.get('share_link')
+        account_id = data.get('account_id')
+        access_code = data.get('access_code')
+        
+        if not share_link or not account_id:
+            return jsonify({'success': False, 'message': '分享链接和账号ID不能为空'})
+        
+        settings = get_settings()
+        if not settings:
+            return jsonify({'success': False, 'message': '请先配置项目地址和API密钥'})
+        
+        result = parse_share_link(settings['project_address'], settings['api_key'], 
+                                share_link, account_id, access_code)
+        return jsonify(result)
+    except Exception as e:
+        print(f"解析分享链接时出错: {e}")
+        return jsonify({'success': False, 'message': f'解析分享链接时出错: {str(e)}'})
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -212,7 +248,21 @@ def index():
             # 兼容旧格式
             target_folder_id = save_path
             target_folder_path = save_path
-        
+
+        # 获取选中的分享目录
+        selected_folders = request.form.getlist('selected_folders')
+        if not selected_folders:
+            # 如果没有选择任何目录，默认选择所有目录（包括根目录）
+            selected_folders = ['-1']  # -1表示根目录
+
+        print(f"任务创建参数:")
+        print(f"  share_link: {share_link}")
+        print(f"  account_id: {account_id}")
+        print(f"  target_folder_id: {target_folder_id}")
+        print(f"  target_folder_path: {target_folder_path}")
+        print(f"  overwrite_folder: {overwrite_folder}")
+        print(f"  selected_folders: {selected_folders}")
+
         # 获取设置信息
         settings = get_settings()
         
@@ -228,17 +278,9 @@ def index():
         if not save_path:
             return render_template('index.html', message="请选择保存目录")
         
-        # 添加调试信息
-        print(f"任务创建参数:")
-        print(f"  share_link: {share_link}")
-        print(f"  account_id: {account_id}")
-        print(f"  target_folder_id: {target_folder_id}")
-        print(f"  target_folder_path: {target_folder_path}")
-        print(f"  overwrite_folder: {overwrite_folder}")
-        
         # 创建任务
-        result = create_task(settings['project_address'], settings['api_key'], 
-                           share_link, account_id, target_folder_id, target_folder_path, overwrite_folder)
+        result = create_task(settings['project_address'], settings['api_key'],
+                           share_link, account_id, target_folder_id, target_folder_path, overwrite_folder, selected_folders)
         
         # 获取账号信息用于显示
         accounts = get_accounts(settings['project_address'], settings['api_key'])
@@ -285,6 +327,16 @@ def settings():
         accounts = get_accounts(current_settings['project_address'], current_settings['api_key'])
     
     return render_template('settings.html', settings=current_settings, accounts=accounts)
+
+@app.route('/api/accounts')
+def get_accounts_api():
+    """获取账号列表API"""
+    settings = get_settings()
+    if not settings.get('project_address') or not settings.get('api_key'):
+        return jsonify({'success': False, 'message': '请先配置项目地址和API Key'})
+    
+    accounts = get_accounts(settings['project_address'], settings['api_key'])
+    return jsonify({'success': True, 'data': accounts})
 
 @app.route('/api/favorites/<int:account_id>')
 def get_favorites_api(account_id):
