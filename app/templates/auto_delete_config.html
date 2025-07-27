@@ -24,6 +24,9 @@
                                 {% if session.is_admin %}<span class="admin-badge">👑</span>{% endif %}
                             </span>
                             <div class="user-dropdown">
+                                <a href="{{ url_for('index') }}" class="dropdown-item">
+                                    🏠 返回首页
+                                </a>
                                 {% if session.is_admin %}
                                 <a href="{{ url_for('settings') }}" class="dropdown-item">
                                     ⚙️ 系统设置
