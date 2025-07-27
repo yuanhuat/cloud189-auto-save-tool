@@ -603,4 +603,6 @@ if not os.path.exists('settings.db'):
     init_db()
 
 if __name__ == '__main__':
+    # 初始化数据库
+    init_db()
     app.run(debug=True)
