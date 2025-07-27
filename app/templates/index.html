@@ -207,6 +207,7 @@
         // 全局变量
         let currentDirectoryPath = '/';
         let currentFolderId = '-11';
+        let directoryStack = []; // 用于维护目录层级
         
         // 页面加载时获取账号列表
         window.onload = function() {
@@ -370,6 +371,7 @@
             document.getElementById('directoryBrowser').style.display = 'flex';
             currentFolderId = '-11';
             currentDirectoryPath = '/';
+            directoryStack = []; // 重置目录栈
             loadDirectoryTree();
         }
 
@@ -385,10 +387,13 @@
             const directoryList = document.getElementById('directoryList');
             
             pathDisplay.textContent = currentDirectoryPath;
+            console.log(`加载目录树: accountId=${accountId}, folderId=${currentFolderId}, path=${currentDirectoryPath}`);
             
             try {
                 const response = await fetch(`/api/directories/${accountId}?folderId=${currentFolderId}`);
                 const data = await response.json();
+                
+                console.log('目录树响应:', data);
                 
                 if (data.success && data.data.length > 0) {
                     directoryList.innerHTML = data.data.map(item => `
@@ -408,6 +413,13 @@
 
         // 进入目录
         function enterDirectory(folderId, folderName) {
+            // 将当前目录信息推入栈中
+            directoryStack.push({
+                id: currentFolderId,
+                name: folderName,
+                path: currentDirectoryPath
+            });
+            
             currentFolderId = folderId;
             currentDirectoryPath = currentDirectoryPath + folderName + '/';
             loadDirectoryTree();
@@ -415,31 +427,31 @@
 
         // 返回上级目录
         function goToParentDirectory() {
-            if (currentDirectoryPath === '/') {
+            if (currentDirectoryPath === '/' || directoryStack.length === 0) {
                 return;
             }
             
-            const pathParts = currentDirectoryPath.split('/').filter(part => part);
-            if (pathParts.length > 0) {
-                pathParts.pop();
-                currentDirectoryPath = '/' + pathParts.join('/') + '/';
-                
-                if (pathParts.length === 0) {
-                    currentFolderId = '-11';
-                } else {
-                    currentFolderId = '-11';
-                }
-                
-                loadDirectoryTree();
-            }
+            // 从栈中弹出上级目录信息
+            const parentDir = directoryStack.pop();
+            currentFolderId = parentDir.id;
+            currentDirectoryPath = parentDir.path;
+            
+            loadDirectoryTree();
         }
 
         // 选择当前目录
         function selectCurrentDirectory() {
             const savePathSelect = document.getElementById('save_path');
             const option = document.createElement('option');
+            
+            // 确保路径格式正确
+            let displayPath = currentDirectoryPath;
+            if (displayPath.endsWith('/') && displayPath !== '/') {
+                displayPath = displayPath.slice(0, -1);
+            }
+            
             option.value = `${currentFolderId}|${currentDirectoryPath}`;
-            option.textContent = `当前目录 (${currentDirectoryPath})`;
+            option.textContent = `当前目录 (${displayPath})`;
             option.selected = true;
             savePathSelect.innerHTML = '';
             savePathSelect.appendChild(option);

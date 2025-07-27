@@ -206,8 +206,8 @@ def get_directory_tree_api(account_id):
         return jsonify({'success': False, 'message': '请先配置项目地址和API Key'})
     
     folder_id = request.args.get('folderId', '-11')
-    directories = get_directory_tree(settings['project_address'], settings['api_key'], account_id, folder_id)
-    return jsonify({'success': True, 'data': directories})
+    result = get_directory_tree(settings['project_address'], settings['api_key'], account_id, folder_id)
+    return jsonify(result)
 
 @app.route('/api/parse-share', methods=['POST'])
 def parse_share():
@@ -357,6 +357,11 @@ def refresh_accounts():
     
     accounts = get_accounts(settings['project_address'], settings['api_key'])
     return jsonify({'success': True, 'data': accounts})
+
+@app.route('/test-directory')
+def test_directory():
+    """目录选择测试页面"""
+    return send_from_directory('.', 'test_directory_ui.html')
 
 # 在应用启动时初始化数据库
 if not os.path.exists('settings.db'):

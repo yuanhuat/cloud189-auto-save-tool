@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>目录选择测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .directory-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: #f5f5f5;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .directory-item:hover {
+            background: #e0e0e0;
+        }
+        .current-path {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .error {
+            color: red;
+            background: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>目录选择功能测试</h1>
+    
+    <div class="test-section">
+        <h3>1. 选择账号</h3>
+        <select id="accountSelect">
+            <option value="">请选择账号</option>
+        </select>
+        <button onclick="loadAccounts()">加载账号</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. 目录浏览器</h3>
+        <button onclick="showDirectoryBrowser()">打开目录浏览器</button>
+        <div class="current-path">
+            <strong>当前路径:</strong> <span id="currentPath">/</span>
+        </div>
+        <div id="directoryList"></div>
+        <button onclick="goToParentDirectory()">返回上级</button>
+        <button onclick="selectCurrentDirectory()">选择当前目录</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. 选择的保存目录</h3>
+        <select id="savePathSelect">
+            <option value="">请先选择目录</option>
+        </select>
+    </div>
+    
+    <div class="test-section">
+        <h3>4. 调试信息</h3>
+        <div id="debugInfo"></div>
+    </div>
+
+    <script>
+        let currentDirectoryPath = '/';
+        let currentFolderId = '-11';
+        let directoryStack = [];
+        
+        // 加载账号列表
+        async function loadAccounts() {
+            try {
+                const response = await fetch('/api/accounts');
+                const data = await response.json();
+                const accountSelect = document.getElementById('accountSelect');
+                
+                if (data.success && data.data.length > 0) {
+                    accountSelect.innerHTML = '<option value="">请选择账号</option>';
+                    data.data.forEach(account => {
+                        const option = document.createElement('option');
+                        option.value = account.id;
+                        option.textContent = account.username;
+                        accountSelect.appendChild(option);
+                    });
+                    updateDebugInfo('账号加载成功');
+                } else {
+                    updateDebugInfo('账号加载失败: ' + data.message);
+                }
+            } catch (error) {
+                updateDebugInfo('账号加载错误: ' + error.message);
+            }
+        }
+        
+        // 显示目录浏览器
+        function showDirectoryBrowser() {
+            const accountId = document.getElementById('accountSelect').value;
+            if (!accountId) {
+                alert('请先选择账号');
+                return;
+            }
+            
+            currentFolderId = '-11';
+            currentDirectoryPath = '/';
+            directoryStack = [];
+            loadDirectoryTree();
+        }
+        
+        // 加载目录树
+        async function loadDirectoryTree() {
+            const accountId = document.getElementById('accountSelect').value;
+            const pathDisplay = document.getElementById('currentPath');
+            const directoryList = document.getElementById('directoryList');
+            
+            pathDisplay.textContent = currentDirectoryPath;
+            updateDebugInfo(`加载目录: accountId=${accountId}, folderId=${currentFolderId}, path=${currentDirectoryPath}`);
+            
+            try {
+                const response = await fetch(`/api/directories/${accountId}?folderId=${currentFolderId}`);
+                const data = await response.json();
+                
+                updateDebugInfo('目录响应: ' + JSON.stringify(data, null, 2));
+                
+                if (data.success && data.data.length > 0) {
+                    directoryList.innerHTML = data.data.map(item => `
+                        <div class="directory-item" onclick="enterDirectory('${item.id}', '${item.name}')">
+                            📁 ${item.name} (ID: ${item.id})
+                        </div>
+                    `).join('');
+                } else {
+                    directoryList.innerHTML = '<div class="error">当前目录为空</div>';
+                }
+            } catch (error) {
+                updateDebugInfo('获取目录失败: ' + error.message);
+                directoryList.innerHTML = '<div class="error">获取目录失败</div>';
+            }
+        }
+        
+        // 进入目录
+        function enterDirectory(folderId, folderName) {
+            directoryStack.push({
+                id: currentFolderId,
+                name: folderName,
+                path: currentDirectoryPath
+            });
+            
+            currentFolderId = folderId;
+            currentDirectoryPath = currentDirectoryPath + folderName + '/';
+            loadDirectoryTree();
+        }
+        
+        // 返回上级目录
+        function goToParentDirectory() {
+            if (currentDirectoryPath === '/' || directoryStack.length === 0) {
+                updateDebugInfo('已在根目录');
+                return;
+            }
+            
+            const parentDir = directoryStack.pop();
+            currentFolderId = parentDir.id;
+            currentDirectoryPath = parentDir.path;
+            loadDirectoryTree();
+        }
+        
+        // 选择当前目录
+        function selectCurrentDirectory() {
+            const savePathSelect = document.getElementById('savePathSelect');
+            const option = document.createElement('option');
+            
+            let displayPath = currentDirectoryPath;
+            if (displayPath.endsWith('/') && displayPath !== '/') {
+                displayPath = displayPath.slice(0, -1);
+            }
+            
+            option.value = `${currentFolderId}|${currentDirectoryPath}`;
+            option.textContent = `当前目录 (${displayPath})`;
+            option.selected = true;
+            savePathSelect.innerHTML = '';
+            savePathSelect.appendChild(option);
+            
+            updateDebugInfo(`已选择目录: ${currentFolderId}|${currentDirectoryPath}`);
+        }
+        
+        // 更新调试信息
+        function updateDebugInfo(message) {
+            const debugInfo = document.getElementById('debugInfo');
+            const timestamp = new Date().toLocaleTimeString();
+            debugInfo.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            debugInfo.scrollTop = debugInfo.scrollHeight;
+        }
+        
+        // 页面加载时自动加载账号
+        window.onload = function() {
+            loadAccounts();
+        };
+    </script>
+</body>
+</html> 
