@@ -209,8 +209,8 @@ TyCloud 是 [cloud189-auto-save](https://github.com/1307super/cloud189-auto-save
 - `FLASK_ENV`: 运行环境（development/production）
 
 ### 数据库配置
-- 数据库文件位置: `app/database/settings.db`
-- 自动初始化: 首次运行时自动创建数据库和表结构
+- 数据库文件位置: `instance/settings.db`
+- 自动初始化: 首次运行时自动创建数据库目录和表结构
 
 ### API 配置
 - **项目地址**: cloud189-auto-save 项目的访问地址
@@ -253,8 +253,6 @@ TyCloud 是 [cloud189-auto-save](https://github.com/1307super/cloud189-auto-save
 tycloud/
 ├── app/                    # 应用主目录
 │   ├── app.py             # 主应用文件
-│   ├── database/          # 数据库目录
-│   │   └── settings.db    # SQLite 数据库文件
 │   ├── static/            # 静态资源
 │   │   ├── style.css      # 主样式文件
 │   │   └── checkbox-fix.css # 复选框样式
@@ -266,6 +264,8 @@ tycloud/
 │       ├── users.html     # 用户管理页
 │       ├── tasks.html     # 任务管理页
 │       └── ...            # 其他模板文件
+├── instance/              # 实例数据目录
+│   └── settings.db        # SQLite 数据库文件
 ├── cloud189-auto-save/    # cloud189-auto-save 项目目录（可选）
 ├── cloud189-auto-save.wiki/ # cloud189-auto-save 项目文档
 ├── requirements.txt       # Python 依赖
