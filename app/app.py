@@ -759,6 +759,115 @@ def test_directory():
 if not os.path.exists('settings.db'):
     init_db()
 
+# 任务管理相关路由
+@app.route('/tasks')
+@admin_required
+def tasks():
+    """任务管理页面"""
+    return render_template('tasks.html')
+
+@app.route('/api/tasks')
+@admin_required
+def get_tasks():
+    """获取任务列表"""
+    try:
+        settings = get_settings()
+        project_address = settings.get('project_address')
+        api_key = settings.get('api_key')
+        
+        if not project_address or not api_key:
+            return jsonify({'success': False, 'error': '请先配置项目地址和API密钥'})
+        
+        # 获取查询参数
+        status = request.args.get('status', 'all')
+        search = request.args.get('search', '')
+        
+        # 构建API URL
+        api_url = f"{project_address.rstrip('/')}/api/tasks"
+        params = {}
+        if status != 'all':
+            params['status'] = status
+        if search:
+            params['search'] = search
+        
+        # 调用 cloud189-auto-save 的 API
+        headers = {'x-api-key': api_key}
+        response = requests.get(api_url, headers=headers, params=params, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            return jsonify(data)
+        else:
+            return jsonify({'success': False, 'error': f'API请求失败: {response.status_code}'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
+@admin_required
+def delete_task(task_id):
+    """删除单个任务"""
+    try:
+        settings = get_settings()
+        project_address = settings.get('project_address')
+        api_key = settings.get('api_key')
+        
+        if not project_address or not api_key:
+            return jsonify({'success': False, 'error': '请先配置项目地址和API密钥'})
+        
+        # 获取删除选项
+        delete_cloud = request.json.get('deleteCloud', False) if request.json else False
+        
+        # 调用 cloud189-auto-save 的 API
+        headers = {'x-api-key': api_key, 'Content-Type': 'application/json'}
+        response = requests.delete(
+            f"{project_address.rstrip('/')}/api/tasks/{task_id}", 
+            headers=headers,
+            json={'deleteCloud': delete_cloud}
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            return jsonify(data)
+        else:
+            return jsonify({'success': False, 'error': f'删除失败: {response.status_code}'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/tasks/batch', methods=['DELETE'])
+@admin_required
+def delete_tasks_batch():
+    """批量删除任务"""
+    try:
+        settings = get_settings()
+        project_address = settings.get('project_address')
+        api_key = settings.get('api_key')
+        
+        if not project_address or not api_key:
+            return jsonify({'success': False, 'error': '请先配置项目地址和API密钥'})
+        
+        # 获取删除参数
+        task_ids = request.json.get('taskIds', [])
+        delete_cloud = request.json.get('deleteCloud', False)
+        
+        if not task_ids:
+            return jsonify({'success': False, 'error': '请选择要删除的任务'})
+        
+        # 调用 cloud189-auto-save 的 API
+        headers = {'x-api-key': api_key, 'Content-Type': 'application/json'}
+        response = requests.delete(
+            f"{project_address.rstrip('/')}/api/tasks/batch", 
+            headers=headers,
+            json={'taskIds': task_ids, 'deleteCloud': delete_cloud}
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            return jsonify(data)
+        else:
+            return jsonify({'success': False, 'error': f'批量删除失败: {response.status_code}'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 if __name__ == '__main__':
     # 初始化数据库
     init_db()

@@ -30,9 +30,12 @@
                                 <a href="{{ url_for('users') }}" class="dropdown-item">
                                     👥 用户管理
                                 </a>
-                                <a href="{{ url_for('account_directories') }}" class="dropdown-item">
-                                    📁 账号目录映射
-                                </a>
+                                                                  <a href="{{ url_for('account_directories') }}" class="dropdown-item">
+                                      📁 账号目录映射
+                                  </a>
+                                  <a href="{{ url_for('tasks') }}" class="dropdown-item">
+                                      📋 任务管理
+                                  </a>
                                 {% endif %}
                                 <a href="{{ url_for('logout') }}" class="dropdown-item">
                                     🚪 退出登录
