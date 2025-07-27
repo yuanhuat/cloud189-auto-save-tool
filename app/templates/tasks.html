@@ -7,39 +7,71 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
+    <div class="app-container">
         <!-- 头部导航 -->
-        <header class="header">
+        <header class="app-header">
             <div class="header-content">
-                <div class="logo">
-                    <span class="logo-icon">📋</span>
-                    <h1>任务管理</h1>
+                <div class="header-left">
+                    <h1 class="app-title">☁️ 云盘自动保存</h1>
+                    <p class="app-subtitle">智能云盘文件自动保存系统</p>
                 </div>
-                <nav class="nav-menu">
-                    <a href="{{ url_for('index') }}" class="nav-link">🏠 首页</a>
-                    <a href="{{ url_for('settings') }}" class="nav-link">⚙️ 设置</a>
-                    <a href="{{ url_for('users') }}" class="nav-link">👥 用户管理</a>
-                    <a href="{{ url_for('account_directories') }}" class="nav-link">📁 账号目录映射</a>
-                    <a href="{{ url_for('tasks') }}" class="nav-link active">📋 任务管理</a>
-                    <div class="user-menu">
-                        <span class="username">{{ session.username }}</span>
-                        <div class="dropdown">
-                            <button class="dropdown-toggle">▼</button>
-                            <div class="dropdown-menu">
-                                <a href="{{ url_for('logout') }}" class="dropdown-item">🚪 退出登录</a>
+                <div class="header-right">
+                    {% if session.username %}
+                        <div class="user-menu">
+                            <span class="user-info">
+                                👤 {{ session.username }}
+                                {% if session.is_admin %}<span class="admin-badge">👑</span>{% endif %}
+                            </span>
+                            <div class="user-dropdown">
+                                {% if session.is_admin %}
+                                <a href="{{ url_for('settings') }}" class="dropdown-item">
+                                    ⚙️ 系统设置
+                                </a>
+                                <a href="{{ url_for('users') }}" class="dropdown-item">
+                                    👥 用户管理
+                                </a>
+                                <a href="{{ url_for('account_directories') }}" class="dropdown-item">
+                                    📁 账号目录映射
+                                </a>
+                                <a href="{{ url_for('tasks') }}" class="dropdown-item">
+                                    📋 任务管理
+                                </a>
+                                {% endif %}
+                                <a href="{{ url_for('logout') }}" class="dropdown-item">
+                                    🚪 退出登录
+                                </a>
                             </div>
                         </div>
-                    </div>
-                </nav>
+                    {% else %}
+                        <div class="auth-buttons">
+                            <a href="{{ url_for('login') }}" class="btn btn-secondary">
+                                🔐 登录
+                            </a>
+                            <a href="{{ url_for('register') }}" class="btn btn-primary">
+                                📝 注册
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </header>
 
         <!-- 主要内容 -->
         <main class="main-content">
-            <!-- 页面标题 -->
+            <!-- 页面标题和统计 -->
             <div class="page-header">
-                <h2>📋 任务管理</h2>
-                <p>管理 Cloud189 自动转存任务，查看任务状态，删除不需要的任务</p>
+                <div class="header-content">
+                    <div class="header-left">
+                        <h2>📋 任务管理中心</h2>
+                        <p>管理 Cloud189 自动转存任务，实时监控任务状态，高效管理您的转存任务</p>
+                    </div>
+                    <div class="header-actions">
+                        <button id="refreshBtn" class="btn btn-primary">
+                            <span class="btn-icon">🔄</span>
+                            <span class="btn-text">刷新</span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- 消息提示 -->
@@ -50,11 +82,48 @@
                 </div>
             </div>
 
+            <!-- 任务统计卡片 -->
+            <div class="stats-section">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon pending">⏳</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="pendingCount">0</div>
+                            <div class="stat-label">等待中</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon processing">📺</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="processingCount">0</div>
+                            <div class="stat-label">追剧中</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon completed">✅</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="completedCount">0</div>
+                            <div class="stat-label">已完成</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon failed">❌</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="failedCount">0</div>
+                            <div class="stat-label">失败</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 筛选和搜索 -->
             <div class="filter-section">
+                <div class="filter-header">
+                    <h3>🔍 筛选与搜索</h3>
+                </div>
                 <div class="filter-controls">
                     <div class="filter-group">
-                        <label for="statusFilter">状态筛选:</label>
+                        <label for="statusFilter">状态筛选</label>
                         <select id="statusFilter" class="filter-select">
                             <option value="all">全部状态</option>
                             <option value="pending">等待中</option>
@@ -64,30 +133,47 @@
                         </select>
                     </div>
                     <div class="filter-group">
-                        <label for="searchInput">搜索:</label>
-                        <input type="text" id="searchInput" class="search-input" placeholder="搜索任务名称、备注或账号...">
+                        <label for="searchInput">关键词搜索</label>
+                        <div class="search-input-group">
+                            <span class="search-icon">🔎</span>
+                            <input type="text" id="searchInput" class="search-input" placeholder="搜索任务名称、备注或账号...">
+                        </div>
                     </div>
-                    <button id="refreshBtn" class="btn btn-primary">🔄 刷新</button>
                 </div>
             </div>
 
             <!-- 批量操作 -->
             <div class="batch-actions" style="display: none;">
-                <div class="batch-info">
-                    <span id="selectedCount">已选择 0 个任务</span>
-                </div>
-                <div class="batch-buttons">
-                    <button id="selectAllBtn" class="btn btn-secondary">全选</button>
-                    <button id="deselectAllBtn" class="btn btn-secondary">取消全选</button>
-                    <button id="batchDeleteBtn" class="btn btn-danger">🗑️ 批量删除</button>
+                <div class="batch-header">
+                    <div class="batch-info">
+                        <span class="batch-icon">📦</span>
+                        <span id="selectedCount">已选择 0 个任务</span>
+                    </div>
+                    <div class="batch-buttons">
+                        <button id="selectAllBtn" class="btn btn-secondary">
+                            <span class="btn-icon">☑️</span>
+                            <span class="btn-text">全选</span>
+                        </button>
+                        <button id="deselectAllBtn" class="btn btn-secondary">
+                            <span class="btn-icon">☐</span>
+                            <span class="btn-text">取消全选</span>
+                        </button>
+                        <button id="batchDeleteBtn" class="btn btn-danger">
+                            <span class="btn-icon">🗑️</span>
+                            <span class="btn-text">批量删除</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <!-- 任务列表 -->
             <div class="tasks-container">
                 <div id="loadingIndicator" class="loading-indicator">
-                    <div class="spinner"></div>
-                    <span>加载中...</span>
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">
+                        <h3>加载中...</h3>
+                        <p>正在获取任务列表，请稍候</p>
+                    </div>
                 </div>
                 
                 <div id="tasksList" class="tasks-list" style="display: none;">
@@ -96,9 +182,13 @@
                 
                 <div id="noTasksMessage" class="no-tasks-message" style="display: none;">
                     <div class="empty-state">
-                        <span class="empty-icon">📭</span>
+                        <div class="empty-icon">📭</div>
                         <h3>暂无任务</h3>
                         <p>当前没有找到任何任务，或者筛选条件过于严格</p>
+                        <button class="btn btn-primary" onclick="loadTasks()">
+                            <span class="btn-icon">🔄</span>
+                            <span class="btn-text">重新加载</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -107,13 +197,22 @@
 
     <!-- 删除确认模态框 -->
     <div id="deleteModal" class="modal-overlay" style="display: none;">
-        <div class="modal-content">
+        <div class="modal-content delete-modal">
             <div class="modal-header">
-                <h3>🗑️ 确认删除</h3>
+                <div class="modal-title">
+                    <span class="modal-icon">🗑️</span>
+                    <h3>确认删除</h3>
+                </div>
                 <button type="button" onclick="hideDeleteModal()" class="modal-close">×</button>
             </div>
             <div class="modal-body">
-                <p id="deleteMessage">确定要删除选中的任务吗？</p>
+                <div class="delete-content">
+                    <div class="delete-icon">⚠️</div>
+                    <div class="delete-text">
+                        <h4 id="deleteMessage">确定要删除选中的任务吗？</h4>
+                        <p>此操作不可撤销，请谨慎操作</p>
+                    </div>
+                </div>
                 <div class="delete-options">
                     <label class="checkbox-label">
                         <input type="checkbox" id="deleteCloudCheckbox">
@@ -122,12 +221,21 @@
                     </label>
                 </div>
                 <div class="delete-warning">
-                    <p>⚠️ 警告：删除操作不可恢复，请谨慎操作！</p>
+                    <div class="warning-icon">🚨</div>
+                    <div class="warning-text">
+                        <strong>警告：</strong>删除云盘文件将永久删除相关文件，无法恢复！
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="hideDeleteModal()">取消</button>
-                <button type="button" class="btn btn-danger" onclick="confirmDelete()">确认删除</button>
+                <button type="button" class="btn btn-secondary" onclick="hideDeleteModal()">
+                    <span class="btn-icon">❌</span>
+                    <span class="btn-text">取消</span>
+                </button>
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">
+                    <span class="btn-icon">🗑️</span>
+                    <span class="btn-text">确认删除</span>
+                </button>
             </div>
         </div>
     </div>
@@ -193,6 +301,7 @@
                 if (data.success) {
                     currentTasks = data.data || [];
                     renderTasks();
+                    updateStats();
                 } else {
                     showMessage(data.error || '加载任务失败', 'error');
                 }
@@ -228,48 +337,67 @@
                             </label>
                         </div>
                         <div class="task-status">
-                            <span class="status-badge status-${task.status}">${getStatusText(task.status)}</span>
+                            <span class="status-badge status-${task.status}">
+                                <span class="status-icon">${getStatusIcon(task.status)}</span>
+                                <span class="status-text">${getStatusText(task.status)}</span>
+                            </span>
                         </div>
                         <div class="task-actions">
                             <button class="btn btn-danger btn-small" onclick="deleteTask(${task.id})">
-                                🗑️ 删除
+                                <span class="btn-icon">🗑️</span>
+                                <span class="btn-text">删除</span>
                             </button>
                         </div>
                     </div>
                     <div class="task-content">
-                        <div class="task-info">
-                            <div class="task-name">
-                                <strong>${task.resourceName || '未知资源'}</strong>
-                                ${task.shareFolderName ? `<span class="sub-folder">/ ${task.shareFolderName}</span>` : ''}
+                        <div class="task-main">
+                            <div class="task-title">
+                                <div class="task-name">
+                                    <span class="name-icon">📺</span>
+                                    <strong>${task.resourceName || '未知资源'}</strong>
+                                    ${task.shareFolderName ? `<span class="sub-folder">/ ${task.shareFolderName}</span>` : ''}
+                                </div>
+                                <div class="task-meta">
+                                    <span class="meta-item">
+                                        <span class="meta-icon">👤</span>
+                                        <span class="meta-text">${task.account?.username || '未知账号'}</span>
+                                    </span>
+                                    <span class="meta-item">
+                                        <span class="meta-icon">📅</span>
+                                        <span class="meta-text">${formatDate(task.createdAt)}</span>
+                                    </span>
+                                </div>
                             </div>
                             <div class="task-details">
-                                <span class="detail-item">
-                                    <span class="detail-label">账号:</span>
-                                    <span class="detail-value">${task.account?.username || '未知'}</span>
-                                </span>
-                                <span class="detail-item">
-                                    <span class="detail-label">保存目录:</span>
-                                    <span class="detail-value">${task.realFolderName || '未知'}</span>
-                                </span>
-                                <span class="detail-item">
-                                    <span class="detail-label">创建时间:</span>
-                                    <span class="detail-value">${formatDate(task.createdAt)}</span>
-                                </span>
-                            </div>
-                            ${task.remark ? `
-                                <div class="task-remark">
-                                    <span class="remark-label">备注:</span>
-                                    <span class="remark-text">${task.remark}</span>
+                                <div class="detail-row">
+                                    <span class="detail-item">
+                                        <span class="detail-label">保存目录</span>
+                                        <span class="detail-value">${task.realFolderName || '未知'}</span>
+                                    </span>
+                                    <span class="detail-item">
+                                        <span class="detail-label">最后检查</span>
+                                        <span class="detail-value">${formatDate(task.lastCheckTime) || '未检查'}</span>
+                                    </span>
                                 </div>
-                            ` : ''}
+                                ${task.remark ? `
+                                    <div class="task-remark">
+                                        <span class="remark-icon">📝</span>
+                                        <span class="remark-text">${task.remark}</span>
+                                    </div>
+                                ` : ''}
+                            </div>
                         </div>
                         <div class="task-progress">
                             ${task.totalEpisodes > 0 ? `
-                                <div class="progress-info">
-                                    <span class="progress-text">进度: ${task.currentEpisodes || 0} / ${task.totalEpisodes}</span>
+                                <div class="progress-section">
+                                    <div class="progress-header">
+                                        <span class="progress-label">转存进度</span>
+                                        <span class="progress-count">${task.currentEpisodes || 0} / ${task.totalEpisodes}</span>
+                                    </div>
                                     <div class="progress-bar">
                                         <div class="progress-fill" style="width: ${((task.currentEpisodes || 0) / task.totalEpisodes * 100)}%"></div>
                                     </div>
+                                    <div class="progress-percentage">${Math.round(((task.currentEpisodes || 0) / task.totalEpisodes * 100))}%</div>
                                 </div>
                             ` : ''}
                         </div>
@@ -294,11 +422,43 @@
             return statusMap[status] || status;
         }
 
+        // 获取状态图标
+        function getStatusIcon(status) {
+            const iconMap = {
+                'pending': '⏳',
+                'processing': '📺',
+                'completed': '✅',
+                'failed': '❌'
+            };
+            return iconMap[status] || '❓';
+        }
+
         // 格式化日期
         function formatDate(dateString) {
             if (!dateString) return '未知';
             const date = new Date(dateString);
             return date.toLocaleString('zh-CN');
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            const stats = {
+                pending: 0,
+                processing: 0,
+                completed: 0,
+                failed: 0
+            };
+
+            currentTasks.forEach(task => {
+                if (stats.hasOwnProperty(task.status)) {
+                    stats[task.status]++;
+                }
+            });
+
+            document.getElementById('pendingCount').textContent = stats.pending;
+            document.getElementById('processingCount').textContent = stats.processing;
+            document.getElementById('completedCount').textContent = stats.completed;
+            document.getElementById('failedCount').textContent = stats.failed;
         }
 
         // 更新批量操作状态

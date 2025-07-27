@@ -12,13 +12,46 @@
         <header class="app-header">
             <div class="header-content">
                 <div class="header-left">
-                    <h1 class="app-title">🔐 用户登录</h1>
-                    <p class="app-subtitle">请输入您的用户名和密码</p>
+                    <h1 class="app-title">☁️ 云盘自动保存</h1>
+                    <p class="app-subtitle">智能云盘文件自动保存系统</p>
                 </div>
                 <div class="header-right">
-                    <a href="{{ url_for('index') }}" class="btn btn-secondary">
-                        🏠 返回首页
-                    </a>
+                    {% if session.username %}
+                        <div class="user-menu">
+                            <span class="user-info">
+                                👤 {{ session.username }}
+                                {% if session.is_admin %}<span class="admin-badge">👑</span>{% endif %}
+                            </span>
+                            <div class="user-dropdown">
+                                {% if session.is_admin %}
+                                <a href="{{ url_for('settings') }}" class="dropdown-item">
+                                    ⚙️ 系统设置
+                                </a>
+                                <a href="{{ url_for('users') }}" class="dropdown-item">
+                                    👥 用户管理
+                                </a>
+                                <a href="{{ url_for('account_directories') }}" class="dropdown-item">
+                                    📁 账号目录映射
+                                </a>
+                                <a href="{{ url_for('tasks') }}" class="dropdown-item">
+                                    📋 任务管理
+                                </a>
+                                {% endif %}
+                                <a href="{{ url_for('logout') }}" class="dropdown-item">
+                                    🚪 退出登录
+                                </a>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="auth-buttons">
+                            <a href="{{ url_for('login') }}" class="btn btn-secondary">
+                                🔐 登录
+                            </a>
+                            <a href="{{ url_for('register') }}" class="btn btn-primary">
+                                📝 注册
+                            </a>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </header>
