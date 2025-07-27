@@ -12,9 +12,12 @@ import re # 导入re模块用于正则表达式
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)  # 生成随机密钥用于session
 
+# 数据库路径常量
+DB_PATH = 'app/database/settings.db'
+
 def init_db():
     """初始化数据库"""
-    conn = sqlite3.connect('settings.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     # 创建设置表
@@ -125,7 +128,7 @@ def init_db():
 
 def get_settings():
     """获取最新的设置信息"""
-    conn = sqlite3.connect('settings.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('SELECT project_address, api_key, tmdb_api_key, registration_enabled FROM settings ORDER BY id DESC LIMIT 1')
     result = cursor.fetchone()
@@ -136,7 +139,7 @@ def get_settings():
 
 def save_settings(project_address, api_key, tmdb_api_key, registration_enabled):
     """保存设置信息到数据库"""
-    conn = sqlite3.connect('settings.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO settings (project_address, api_key, tmdb_api_key, registration_enabled)
@@ -147,7 +150,7 @@ def save_settings(project_address, api_key, tmdb_api_key, registration_enabled):
 
 def verify_user(username, password):
     """验证用户登录"""
-    conn = sqlite3.connect('settings.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     password_hash = hashlib.sha256(password.encode()).hexdigest()
     cursor.execute('SELECT id, username, is_admin FROM users WHERE username = ? AND password_hash = ?', 
@@ -159,7 +162,7 @@ def verify_user(username, password):
 def create_user(username, password, is_admin=False):
     """创建新用户"""
     try:
-        conn = sqlite3.connect('settings.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         password_hash = hashlib.sha256(password.encode()).hexdigest()
         cursor.execute('INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, ?)',
@@ -172,7 +175,7 @@ def create_user(username, password, is_admin=False):
 
 def get_all_users():
     """获取所有用户列表（仅管理员）"""
-    conn = sqlite3.connect('settings.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('SELECT id, username, is_admin, created_at FROM users ORDER BY created_at DESC')
     users = cursor.fetchall()
@@ -182,7 +185,7 @@ def get_all_users():
 def delete_user(user_id):
     """删除用户（仅管理员）"""
     try:
-        conn = sqlite3.connect('settings.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
         conn.commit()
@@ -193,7 +196,7 @@ def delete_user(user_id):
 
 def check_admin_first_login():
     """检查管理员是否已经登录过"""
-    conn = sqlite3.connect('settings.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('SELECT has_logged_in FROM users WHERE username = "admin" AND is_admin = TRUE')
     result = cursor.fetchone()
@@ -202,7 +205,7 @@ def check_admin_first_login():
 
 def mark_admin_logged_in():
     """标记管理员已经登录过"""
-    conn = sqlite3.connect('settings.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('UPDATE users SET has_logged_in = TRUE WHERE username = "admin" AND is_admin = TRUE')
     conn.commit()
@@ -211,7 +214,7 @@ def mark_admin_logged_in():
 def update_user(user_id, username, password=None, is_admin=None):
     """更新用户信息"""
     try:
-        conn = sqlite3.connect('settings.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
         if password and is_admin is not None:
@@ -255,7 +258,7 @@ def update_user(user_id, username, password=None, is_admin=None):
 def get_user_by_id(user_id):
     """根据ID获取用户信息"""
     try:
-        conn = sqlite3.connect('settings.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute('SELECT id, username, is_admin, created_at FROM users WHERE id = ?', (user_id,))
         user = cursor.fetchone()
@@ -268,7 +271,7 @@ def get_user_by_id(user_id):
 def save_account_directory(account_id, account_name, target_folder_id, target_folder_path, folder_name):
     """保存账号-目录映射"""
     try:
-        conn = sqlite3.connect('settings.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
         # 检查是否已存在该账号的映射
@@ -300,7 +303,7 @@ def save_account_directory(account_id, account_name, target_folder_id, target_fo
 def get_account_directories():
     """获取所有账号-目录映射"""
     try:
-        conn = sqlite3.connect('settings.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute('''
             SELECT id, account_id, account_name, target_folder_id, target_folder_path, 
@@ -319,7 +322,7 @@ def get_account_directories():
 def get_account_directory(account_id):
     """获取指定账号的目录映射"""
     try:
-        conn = sqlite3.connect('settings.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute('''
             SELECT target_folder_id, target_folder_path, folder_name
@@ -336,7 +339,7 @@ def get_account_directory(account_id):
 def delete_account_directory(mapping_id):
     """删除账号-目录映射"""
     try:
-        conn = sqlite3.connect('settings.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute('DELETE FROM account_directories WHERE id = ?', (mapping_id,))
         conn.commit()
@@ -796,7 +799,7 @@ def edit_user(user_id):
         
         # 检查用户名是否已被其他用户使用
         if username != user[1]:  # 如果用户名有变化
-            conn = sqlite3.connect('settings.db')
+            conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
             cursor.execute('SELECT id FROM users WHERE username = ? AND id != ?', (username, user_id))
             if cursor.fetchone():
@@ -953,7 +956,7 @@ def test_directory():
     return render_template('test_directory.html')
 
 # 在应用启动时初始化数据库
-if not os.path.exists('settings.db'):
+if not os.path.exists(DB_PATH):
     init_db()
 
 # 任务管理相关路由
@@ -1068,7 +1071,7 @@ def delete_tasks_batch():
 # 自动删除配置管理函数
 def get_auto_delete_configs():
     """获取自动删除配置"""
-    conn = sqlite3.connect('settings.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM auto_delete_config ORDER BY status')
     configs = cursor.fetchall()
@@ -1089,7 +1092,7 @@ def get_auto_delete_configs():
 
 def update_auto_delete_config(config_id, days, delete_cloud, enabled):
     """更新自动删除配置"""
-    conn = sqlite3.connect('settings.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
         UPDATE auto_delete_config 
