@@ -1183,6 +1183,44 @@ def execute_auto_delete():
     except Exception as e:
         return {"success": False, "message": f"执行自动删除失败: {e}"}
 
+# 新增 CloudSaver 资源搜索功能
+def search_cloudsaver_resources(project_address, keyword):
+    """
+    调用 CloudSaver 的资源搜索 API
+    CloudSaver 的搜索 API 使用 Bearer Token，但由于 app.py 不直接管理 CloudSaver 的登录状态和 Token，
+    我们依赖于 cloud189-auto-save 服务本身处理认证。
+    这里仅将 x-api-key 用于访问 cloud189-auto-save 服务本身的 API。
+    """
+    try:
+        api_url = f"{project_address.rstrip('/')}/api/cloudsaver/search"
+        # 注意: 这里使用 params 传递 keyword，而不是直接拼接在 URL 中，以正确处理特殊字符
+        params = {'keyword': keyword}
+        
+        # 假设 cloud189-auto-save 服务本身通过 x-api-key 进行认证
+        settings = get_settings()
+        headers = {'x-api-key': settings.get('api_key', ''), 'Content-Type': 'application/json'}
+        
+        print(f"调用 CloudSaver 搜索 API: {api_url}，关键字: {keyword}")
+        response = requests.get(api_url, headers=headers, params=params, timeout=30) # 增加超时时间
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('success'):
+                print(f"CloudSaver 搜索成功，结果数量: {len(result.get('data', []))}")
+                return {'success': True, 'data': result.get('data', [])}
+            else:
+                print(f"CloudSaver 搜索 API 返回错误: {result.get('error', '未知错误')}")
+                return {'success': False, 'message': result.get('error', 'CloudSaver 搜索失败')}
+        else:
+            print(f"CloudSaver 搜索 API 请求失败，状态码: {response.status_code}, 响应: {response.text}")
+            return {'success': False, 'message': f'CloudSaver 搜索 API 请求失败，状态码: {response.status_code}'}
+    except requests.exceptions.RequestException as e:
+        print(f"CloudSaver 搜索 API 请求异常: {e}")
+        return {'success': False, 'message': f'CloudSaver 搜索 API 请求异常: {str(e)}'}
+    except Exception as e:
+        print(f"CloudSaver 搜索时出错: {e}")
+        return {'success': False, 'message': f'CloudSaver 搜索时出错: {str(e)}'}
+
 # 自动删除配置路由
 @app.route('/auto-delete')
 @admin_required
@@ -1251,6 +1289,30 @@ def schedule_auto_delete():
         return jsonify(result)
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+# 新增资源搜索 API
+@app.route('/api/search', methods=['POST'])
+@login_required
+def search_resources_api():
+    """提供给前端的资源搜索API接口"""
+    try:
+        data = request.get_json()
+        keyword = data.get('keyword')
+
+        if not keyword:
+            return jsonify({'success': False, 'message': '搜索关键字不能为空'})
+        
+        settings = get_settings()
+        project_address = settings.get('project_address')
+
+        if not project_address:
+            return jsonify({'success': False, 'message': '请先配置项目地址'})
+
+        search_result = search_cloudsaver_resources(project_address, keyword)
+        return jsonify(search_result)
+    except Exception as e:
+        print(f"搜索资源时出错: {e}")
+        return jsonify({'success': False, 'message': f'搜索资源时出错: {str(e)}'})
 
 # 添加一个简单的定时任务（每小时执行一次）
 import threading

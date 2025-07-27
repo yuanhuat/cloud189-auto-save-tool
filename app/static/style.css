@@ -3046,3 +3046,172 @@ input:checked + .slider:before {
 }
 
 /* 响应式设计 */
+
+/* CloudSaver 搜索样式 */
+.search-container {
+    background: #FFFFFF; /* rgba(255, 255, 255, 0.95) */
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid #E6E6E6; /* rgba(255, 255, 255, 0.2) */
+    margin-bottom: 2rem; /* 在搜索和任务表单之间增加一些间距 */
+}
+
+.search-input-group {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.search-input-group .search-input {
+    flex: 1;
+    padding: 0.85rem 1.2rem;
+    border-radius: 10px; /* 更圆润的输入框 */
+    border: 2px solid #E2E8F0;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.search-input-group .search-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 4px #667eea26; /* rgba(102, 126, 234, 0.15) */
+}
+
+.search-input-group .search-button {
+    padding: 0.85rem 1.8rem; /* 更大的按钮 */
+    font-size: 1rem;
+    border-radius: 10px; /* 更圆润的按钮 */
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    font-weight: 600;
+}
+
+.search-input-group .search-button:hover {
+    transform: translateY(-3px); /* 更明显的悬停效果 */
+    box-shadow: 0 10px 30px #667eea66; /* rgba(102, 126, 234, 0.4) */
+}
+
+.search-results-area {
+    background: #F8FAFC; /* rgba(248, 250, 252, 0.5) */
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid #E6E6E6; /* rgba(0, 0, 0, 0.05) */
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.no-results-message, .loading-message, .error-message {
+    color: #718096;
+    font-style: italic;
+}
+
+.loading-message {
+    color: #667eea;
+}
+
+.error-message {
+    color: #e53e3e;
+}
+
+.resource-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+}
+
+.resource-item {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.resource-item:hover {
+    border-color: #667eea;
+    box-shadow: 0 4px 12px #667eea1a; /* rgba(102, 126, 234, 0.1) */
+}
+
+.resource-name {
+    font-weight: 600;
+    color: #2d3748;
+    flex: 1 1 50%; /* 允许换行 */
+    min-width: 150px;
+    word-break: break-all;
+}
+
+.resource-size {
+    background: #e2e8f0;
+    color: #4a5568;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.resource-date {
+    color: #718096;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.resource-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.resource-actions .btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    border-radius: 6px;
+}
+
+.btn-info {
+    background: linear-gradient(135deg, #4299e1, #3182ce);
+    color: white;
+}
+
+.btn-info:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px #4299e14d; /* rgba(66, 153, 225, 0.3) */
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .search-input-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .search-input-group .search-button {
+        width: 100%;
+    }
+
+    .resource-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .resource-actions {
+        width: 100%;
+        justify-content: flex-start;
+        margin-left: 0;
+    }
+}
+
+/* End of file */

@@ -303,6 +303,24 @@
                 </div>
             </div>
         </div>
+
+        <!-- CloudSaver 资源搜索区域 -->
+        <div class="search-container">
+            <div class="form-header">
+                <h2>🔍 CloudSaver 资源搜索</h2>
+                <p>在 CloudSaver 中搜索资源</p>
+            </div>
+            <div class="search-input-group">
+                <input type="text" id="cloudSaverSearchInput" placeholder="请输入资源名称，例如：电影、文档等" class="search-input">
+                <button type="button" class="btn btn-primary search-button" onclick="performCloudSaverSearch()">
+                    搜索资源
+                </button>
+            </div>
+            <div id="cloudSaverSearchResults" class="search-results-area">
+                <!-- 搜索结果将在这里显示 -->
+                <p class="no-results-message">暂无搜索结果。请在上方输入关键字进行搜索。</p>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -875,6 +893,93 @@
                 return false;
             }
         });
+
+        // CloudSaver 搜索功能
+        async function performCloudSaverSearch() {
+            const keyword = document.getElementById('cloudSaverSearchInput').value.trim();
+            const resultsArea = document.getElementById('cloudSaverSearchResults');
+            resultsArea.innerHTML = '<p class="loading-message">正在搜索中，请稍候...</p>';
+
+            if (!keyword) {
+                resultsArea.innerHTML = '<p class="no-results-message">请输入搜索关键字。</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ keyword: keyword })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.data && data.data.length > 0) {
+                    renderSearchResults(data.data);
+                } else {
+                    resultsArea.innerHTML = `<p class="no-results-message">${data.message || '没有找到相关资源。'}</p>`;
+                }
+            } catch (error) {
+                console.error('CloudSaver 搜索失败:', error);
+                resultsArea.innerHTML = '<p class="error-message">搜索失败，请检查网络或后端配置。</p>';
+            }
+        }
+
+        function renderSearchResults(results) {
+            const resultsArea = document.getElementById('cloudSaverSearchResults');
+            resultsArea.innerHTML = ''; // 清空现有结果
+
+            if (results.length === 0) {
+                resultsArea.innerHTML = '<p class="no-results-message">没有找到相关资源。</p>';
+                return;
+            }
+
+            const ul = document.createElement('ul');
+            ul.className = 'resource-list';
+
+            results.forEach(resource => {
+                const li = document.createElement('li');
+                li.className = 'resource-item';
+                // 假设每个资源至少有一个 cloudLink，并且我们只显示第一个链接
+                const shareUrl = resource.cloudLinks && resource.cloudLinks.length > 0 ? resource.cloudLinks[0].link : '#';
+                
+                li.innerHTML = `
+                    <span class="resource-name">${resource.title || '无标题'}</span>
+                    <span class="resource-actions">
+                        <button class="btn btn-sm btn-info" onclick="copyToClipboard('${shareUrl}')">复制链接</button>
+                        <button class="btn btn-sm btn-success" onclick="fillShareLinkAndSearch('${shareUrl}')">填充到分享链接</button>
+                    </span>
+                `;
+                ul.appendChild(li);
+            });
+
+            resultsArea.appendChild(ul);
+        }
+
+        // 辅助函数：复制到剪贴板
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showMessage('链接已复制到剪贴板！', 'success');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                showMessage('复制失败，请手动复制。', 'error');
+            });
+        }
+
+        // 辅助函数：填充分享链接到任务创建表单
+        function fillShareLinkAndSearch(shareUrl) {
+            document.getElementById('share_link').value = shareUrl;
+            // 切换到单个链接模式
+            document.querySelector('input[name="input_mode"][value="single"]').checked = true;
+            switchInputMode();
+            // 滚动到任务创建表单
+            document.getElementById('taskForm').scrollIntoView({ behavior: 'smooth' });
+            showMessage('分享链接已填充到任务创建表单。', 'info');
+        }
+
+
     </script>
 </body>
 </html>
