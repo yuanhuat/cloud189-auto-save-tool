@@ -241,7 +241,8 @@ def parse_share():
 def index():
     """渲染首页，包含分享链接填写和配置入口"""
     if request.method == 'POST':
-        share_link = request.form.get('share_link')
+        share_link = request.form.get('share_link', '').strip()
+        batch_links = request.form.get('batch_links', '').strip()
         account_id = request.form.get('account_id')
         save_path = request.form.get('save_path')
         overwrite_folder = request.form.get('overwrite_folder') == 'on'
@@ -264,24 +265,11 @@ def index():
         enable_cron = request.form.get('enable_cron') == 'on'
         cron_expression = request.form.get('cron_expression', '').strip()
 
-        print(f"任务创建参数:")
-        print(f"  share_link: {share_link}")
-        print(f"  account_id: {account_id}")
-        print(f"  target_folder_id: {target_folder_id}")
-        print(f"  target_folder_path: {target_folder_path}")
-        print(f"  overwrite_folder: {overwrite_folder}")
-        print(f"  selected_folders: {selected_folders}")
-        print(f"  enable_cron: {enable_cron}")
-        print(f"  cron_expression: {cron_expression}")
-
         # 获取设置信息
         settings = get_settings()
         
         if not settings.get('project_address') or not settings.get('api_key'):
             return render_template('index.html', message="请先配置项目地址和API Key")
-        
-        if not share_link:
-            return render_template('index.html', message="请输入分享链接")
         
         if not account_id:
             return render_template('index.html', message="请选择账号")
@@ -293,10 +281,66 @@ def index():
         if enable_cron and not cron_expression:
             return render_template('index.html', message="启用定时任务时必须填写Cron表达式")
         
-        # 创建任务
-        result = create_task(settings['project_address'], settings['api_key'],
-                           share_link, account_id, target_folder_id, target_folder_path, 
-                           overwrite_folder, selected_folders, enable_cron, cron_expression)
+        # 处理批量链接
+        if batch_links:
+            # 批量处理模式
+            links = [line.strip() for line in batch_links.split('\n') if line.strip()]
+            if not links:
+                return render_template('index.html', message="请输入有效的批量分享链接")
+            
+            print(f"批量任务创建参数:")
+            print(f"  链接数量: {len(links)}")
+            print(f"  account_id: {account_id}")
+            print(f"  target_folder_id: {target_folder_id}")
+            print(f"  target_folder_path: {target_folder_path}")
+            print(f"  overwrite_folder: {overwrite_folder}")
+            print(f"  selected_folders: {selected_folders}")
+            print(f"  enable_cron: {enable_cron}")
+            print(f"  cron_expression: {cron_expression}")
+            
+            # 批量创建任务
+            results = []
+            for i, line in enumerate(links):
+                # 解析链接和访问码
+                parts = line.split()
+                link = parts[0]
+                link_access_code = parts[1] if len(parts) > 1 else ''
+                
+                print(f"  处理链接 {i+1}: {link}")
+                result = create_task(settings['project_address'], settings['api_key'],
+                                   link, account_id, target_folder_id, target_folder_path, 
+                                   overwrite_folder, selected_folders, enable_cron, cron_expression)
+                results.append(result)
+            
+            # 统计结果
+            success_count = sum(1 for r in results if r.get('success'))
+            fail_count = len(results) - success_count
+            
+            if success_count > 0:
+                message = f"批量创建任务完成！成功: {success_count} 个，失败: {fail_count} 个"
+                return render_template('index.html', message=message, task_result={'success': True})
+            else:
+                message = f"批量创建任务失败！所有 {len(results)} 个任务都创建失败"
+                return render_template('index.html', message=message, task_result={'success': False})
+        else:
+            # 单个链接模式
+            if not share_link:
+                return render_template('index.html', message="请输入分享链接")
+            
+            print(f"单个任务创建参数:")
+            print(f"  share_link: {share_link}")
+            print(f"  account_id: {account_id}")
+            print(f"  target_folder_id: {target_folder_id}")
+            print(f"  target_folder_path: {target_folder_path}")
+            print(f"  overwrite_folder: {overwrite_folder}")
+            print(f"  selected_folders: {selected_folders}")
+            print(f"  enable_cron: {enable_cron}")
+            print(f"  cron_expression: {cron_expression}")
+            
+            # 创建单个任务
+            result = create_task(settings['project_address'], settings['api_key'],
+                               share_link, account_id, target_folder_id, target_folder_path, 
+                               overwrite_folder, selected_folders, enable_cron, cron_expression)
         
         # 获取账号信息用于显示
         accounts = get_accounts(settings['project_address'], settings['api_key'])

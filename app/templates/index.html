@@ -85,23 +85,62 @@
                     <!-- 分享链接部分 -->
                     <div class="form-section">
                         <h3 class="section-title">🔗 分享链接</h3>
-                        <div class="share-link-group">
-                            <div class="input-group">
-                                <label for="share_link">分享链接</label>
-                                <input type="text" id="share_link" name="share_link" required 
-                                       placeholder="请输入分享链接，例如: https://cloud.189.cn/...">
-                            </div>
-                            <div class="input-group">
-                                <label for="access_code">访问码（可选）</label>
-                                <input type="text" id="access_code" name="access_code" 
-                                       placeholder="如果链接需要访问码，请在此输入">
-                            </div>
-                            <div class="action-group">
-                                <button type="button" class="btn btn-primary" onclick="parseShareLink()">
-                                    🔍 解析链接
-                                </button>
+                        
+                        <!-- 输入模式切换 -->
+                        <div class="input-mode-switch">
+                            <label class="radio-label">
+                                <input type="radio" name="input_mode" value="single" checked onchange="switchInputMode()">
+                                <span class="radio-custom"></span>
+                                <span class="radio-text">单个链接</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="input_mode" value="batch" onchange="switchInputMode()">
+                                <span class="radio-custom"></span>
+                                <span class="radio-text">批量链接</span>
+                            </label>
+                        </div>
+                        
+                        <!-- 单个链接输入 -->
+                        <div id="single_link_input" class="link-input-section">
+                            <div class="share-link-group">
+                                <div class="input-group">
+                                    <label for="share_link">分享链接</label>
+                                    <input type="text" id="share_link" name="share_link" 
+                                           placeholder="请输入分享链接，例如: https://cloud.189.cn/...">
+                                </div>
+                                <div class="input-group">
+                                    <label for="access_code">访问码（可选）</label>
+                                    <input type="text" id="access_code" name="access_code" 
+                                           placeholder="如果链接需要访问码，请在此输入">
+                                </div>
+                                <div class="action-group">
+                                    <button type="button" class="btn btn-primary" onclick="parseShareLink()">
+                                        🔍 解析链接
+                                    </button>
+                                </div>
                             </div>
                         </div>
+                        
+                        <!-- 批量链接输入 -->
+                        <div id="batch_link_input" class="link-input-section" style="display: none;">
+                            <div class="input-group">
+                                <label for="batch_links">批量分享链接</label>
+                                <textarea id="batch_links" name="batch_links" 
+                                          placeholder="请输入多个分享链接，每行一个链接&#10;例如:&#10;https://cloud.189.cn/share1&#10;https://cloud.189.cn/share2&#10;https://cloud.189.cn/share3" 
+                                          rows="6"></textarea>
+                                <div class="batch-input-help">
+                                    <small>💡 每行输入一个分享链接，支持带访问码的链接</small><br>
+                                    <small>💡 格式：链接 [访问码]（访问码可选）</small><br>
+                                    <small>💡 示例：https://cloud.189.cn/share1 123456</small>
+                                </div>
+                                <div class="action-group">
+                                    <button type="button" class="btn btn-primary" onclick="parseBatchLinks()">
+                                        🔍 批量解析
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div id="share_parse_error" class="error-message"></div>
                     </div>
 
@@ -486,6 +525,203 @@
             const cronConfig = document.getElementById('cron_config');
             cronConfig.style.display = this.checked ? 'block' : 'none';
         });
+
+        // 切换输入模式
+        function switchInputMode() {
+            const singleInput = document.getElementById('single_link_input');
+            const batchInput = document.getElementById('batch_link_input');
+            const singleRadio = document.querySelector('input[name="input_mode"][value="single"]');
+            
+            if (singleRadio.checked) {
+                singleInput.style.display = 'block';
+                batchInput.style.display = 'none';
+                // 设置单个链接为必填
+                document.getElementById('share_link').required = true;
+                document.getElementById('batch_links').required = false;
+            } else {
+                singleInput.style.display = 'none';
+                batchInput.style.display = 'block';
+                // 设置批量链接为必填
+                document.getElementById('share_link').required = false;
+                document.getElementById('batch_links').required = true;
+            }
+        }
+
+        // 批量解析链接
+        async function parseBatchLinks() {
+            const batchLinks = document.getElementById('batch_links').value.trim();
+            const accountId = document.getElementById('account_id').value;
+            
+            if (!batchLinks) {
+                showError('请输入批量分享链接');
+                return;
+            }
+            
+            if (!accountId) {
+                showError('请先选择账号');
+                return;
+            }
+            
+            // 解析批量链接
+            const links = batchLinks.split('\n').filter(line => line.trim());
+            if (links.length === 0) {
+                showError('没有找到有效的分享链接');
+                return;
+            }
+            
+            console.log(`开始批量解析 ${links.length} 个链接...`);
+            
+            // 显示批量处理状态
+            showBatchProgress(links.length);
+            
+            // 逐个解析链接
+            const results = [];
+            for (let i = 0; i < links.length; i++) {
+                const line = links[i].trim();
+                if (!line) continue;
+                
+                // 解析链接和访问码
+                const parts = line.split(/\s+/);
+                const shareLink = parts[0];
+                const accessCode = parts[1] || '';
+                
+                try {
+                    const response = await fetch('/api/parse-share', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            share_link: shareLink,
+                            account_id: accountId,
+                            access_code: accessCode
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success && data.data.length > 0) {
+                        results.push({
+                            shareLink: shareLink,
+                            accessCode: accessCode,
+                            folders: data.data,
+                            success: true
+                        });
+                        updateBatchProgress(i + 1, links.length, `✅ 链接 ${i + 1} 解析成功`);
+                    } else {
+                        results.push({
+                            shareLink: shareLink,
+                            accessCode: accessCode,
+                            error: data.message || '解析失败',
+                            success: false
+                        });
+                        updateBatchProgress(i + 1, links.length, `❌ 链接 ${i + 1} 解析失败: ${data.message}`);
+                    }
+                } catch (error) {
+                    results.push({
+                        shareLink: shareLink,
+                        accessCode: accessCode,
+                        error: error.message,
+                        success: false
+                    });
+                    updateBatchProgress(i + 1, links.length, `❌ 链接 ${i + 1} 解析失败: ${error.message}`);
+                }
+            }
+            
+            // 显示批量解析结果
+            showBatchResults(results);
+        }
+
+        // 显示批量处理进度
+        function showBatchProgress(total) {
+            const progressHtml = `
+                <div id="batch_progress" class="batch-progress">
+                    <div class="progress-header">
+                        <h4>🔄 批量解析进度</h4>
+                        <span id="progress_text">0 / ${total}</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="progress_fill" class="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <div id="progress_status" class="progress-status">准备开始...</div>
+                </div>
+            `;
+            
+            const errorDiv = document.getElementById('share_parse_error');
+            errorDiv.innerHTML = progressHtml;
+            errorDiv.className = 'batch-progress-container';
+        }
+
+        // 更新批量处理进度
+        function updateBatchProgress(current, total, status) {
+            const progressFill = document.getElementById('progress_fill');
+            const progressText = document.getElementById('progress_text');
+            const progressStatus = document.getElementById('progress_status');
+            
+            if (progressFill && progressText && progressStatus) {
+                const percentage = (current / total) * 100;
+                progressFill.style.width = percentage + '%';
+                progressText.textContent = `${current} / ${total}`;
+                progressStatus.textContent = status;
+            }
+        }
+
+        // 显示批量解析结果
+        function showBatchResults(results) {
+            const successCount = results.filter(r => r.success).length;
+            const failCount = results.length - successCount;
+            
+            let resultHtml = `
+                <div class="batch-results">
+                    <div class="results-summary">
+                        <h4>📊 批量解析结果</h4>
+                        <div class="results-stats">
+                            <span class="stat-success">✅ 成功: ${successCount}</span>
+                            <span class="stat-fail">❌ 失败: ${failCount}</span>
+                        </div>
+                    </div>
+            `;
+            
+            if (successCount > 0) {
+                resultHtml += '<div class="success-links">';
+                results.filter(r => r.success).forEach((result, index) => {
+                    resultHtml += `
+                        <div class="link-result success">
+                            <div class="link-info">
+                                <span class="link-number">#${index + 1}</span>
+                                <span class="link-url">${result.shareLink}</span>
+                                ${result.accessCode ? `<span class="access-code">访问码: ${result.accessCode}</span>` : ''}
+                            </div>
+                            <div class="folder-count">找到 ${result.folders.length} 个目录</div>
+                        </div>
+                    `;
+                });
+                resultHtml += '</div>';
+            }
+            
+            if (failCount > 0) {
+                resultHtml += '<div class="failed-links">';
+                results.filter(r => !r.success).forEach((result, index) => {
+                    resultHtml += `
+                        <div class="link-result fail">
+                            <div class="link-info">
+                                <span class="link-number">#${index + 1}</span>
+                                <span class="link-url">${result.shareLink}</span>
+                                ${result.accessCode ? `<span class="access-code">访问码: ${result.accessCode}</span>` : ''}
+                            </div>
+                            <div class="error-message">${result.error}</div>
+                        </div>
+                    `;
+                });
+                resultHtml += '</div>';
+            }
+            
+            resultHtml += '</div>';
+            
+            const errorDiv = document.getElementById('share_parse_error');
+            errorDiv.innerHTML = resultHtml;
+            errorDiv.className = 'batch-results-container';
+        }
 
         // 表单提交前验证
         document.getElementById('taskForm').addEventListener('submit', function(e) {
