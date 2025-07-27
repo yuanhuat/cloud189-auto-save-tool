@@ -1333,6 +1333,174 @@ textarea::placeholder {
     text-decoration: none;
 }
 
+/* 账号目录映射样式 */
+.mapping-form-container {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.mapping-form {
+    max-width: 1000px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.mappings-container {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.mapping-stats {
+    display: flex;
+    gap: 1rem;
+}
+
+.mappings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.mapping-card {
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 1px solid rgba(102, 126, 234, 0.1);
+    transition: all 0.3s ease;
+}
+
+.mapping-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.mapping-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.mapping-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.mapping-info {
+    flex: 1;
+}
+
+.mapping-name {
+    margin: 0 0 0.25rem 0;
+    color: #1a202c;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.mapping-id {
+    color: #718096;
+    font-size: 0.9rem;
+}
+
+.mapping-details {
+    border-top: 1px solid #e2e8f0;
+    padding-top: 1rem;
+    margin-bottom: 1rem;
+}
+
+.mapping-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.no-mappings-section {
+    text-align: center;
+    padding: 3rem 2rem;
+}
+
+.usage-info-section {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+/* 文件夹输入组样式 */
+.folder-input-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.folder-input-group input {
+    flex: 1;
+}
+
+.folder-input-group button {
+    white-space: nowrap;
+    min-width: auto;
+}
+
+/* 映射目录浏览器样式 */
+#mappingDirectoryBrowser .modal-content {
+    max-width: 800px;
+    max-height: 80vh;
+}
+
+#mappingDirectoryBrowser .modal-body {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .mappings-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .mapping-stats {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .folder-input-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .folder-input-group button {
+        width: 100%;
+    }
+}
+
 /* 定时任务配置 */
 .cron-config {
     margin-top: 1rem;

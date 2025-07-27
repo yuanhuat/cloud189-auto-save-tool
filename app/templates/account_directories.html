@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📁 账号目录映射 - 云盘自动保存</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 应用头部 -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 class="app-title">📁 账号目录映射</h1>
+                    <p class="app-subtitle">管理账号与保存目录的对应关系</p>
+                </div>
+                <div class="header-right">
+                    <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                        🏠 返回首页
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主要内容 -->
+        <main class="main-content">
+            <!-- 消息提示 -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="message-container">
+                            <div class="message {{ 'success' if category == 'success' else 'error' if category == 'error' else 'info' }}">
+                                <span class="message-icon">
+                                    {% if category == 'success' %}✅
+                                    {% elif category == 'error' %}❌
+                                    {% else %}ℹ️{% endif %}
+                                </span>
+                                <span class="message-text">{{ message }}</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- 添加映射表单 -->
+            <div class="mapping-form-container">
+                <h3 class="section-title">➕ 添加账号目录映射</h3>
+                <form action="{{ url_for('save_account_directory_route') }}" method="post" class="mapping-form">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="account_id">选择账号</label>
+                            <select id="account_id" name="account_id" required onchange="updateAccountName()">
+                                <option value="">请选择账号</option>
+                                {% for account in accounts %}
+                                <option value="{{ account.id }}" data-name="{{ account.username }}">
+                                    {{ account.username }} (ID: {{ account.id }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <input type="hidden" id="account_name" name="account_name" required>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label for="target_folder_id">目标文件夹ID</label>
+                            <div class="folder-input-group">
+                                <input type="text" id="target_folder_id" name="target_folder_id" 
+                                       placeholder="请先选择账号，然后浏览选择文件夹" required readonly>
+                                <button type="button" id="browseMappingFolders" class="btn btn-secondary" 
+                                        onclick="showMappingDirectoryBrowser()" style="display: none;">
+                                    📂 浏览文件夹
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label for="target_folder_path">目标文件夹路径</label>
+                            <input type="text" id="target_folder_path" name="target_folder_path" 
+                                   placeholder="选择文件夹后自动填充" required readonly>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label for="folder_name">文件夹显示名称</label>
+                            <input type="text" id="folder_name" name="folder_name" 
+                                   placeholder="例如: 电影文件夹" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success">
+                            💾 保存映射
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 映射列表 -->
+            <div class="mappings-container">
+                <div class="section-header">
+                    <h3 class="section-title">📋 当前映射列表</h3>
+                    <div class="mapping-stats">
+                        <span class="stat-item">
+                            <span class="stat-label">总映射数:</span>
+                            <span class="stat-value">{{ mappings|length }}</span>
+                        </span>
+                    </div>
+                </div>
+
+                {% if mappings %}
+                <div class="mappings-grid">
+                    {% for mapping in mappings %}
+                    <div class="mapping-card">
+                        <div class="mapping-header">
+                            <div class="mapping-avatar">
+                                <span class="avatar-text">{{ mapping[2][0].upper() }}</span>
+                            </div>
+                            <div class="mapping-info">
+                                <h4 class="mapping-name">{{ mapping[2] }}</h4>
+                                <span class="mapping-id">账号ID: {{ mapping[1] }}</span>
+                            </div>
+                            <div class="mapping-status">
+                                <span class="status-badge active">✅ 已配置</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mapping-details">
+                            <div class="detail-item">
+                                <span class="detail-label">目标文件夹:</span>
+                                <span class="detail-value">{{ mapping[5] }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">文件夹ID:</span>
+                                <span class="detail-value">{{ mapping[3] }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">文件夹路径:</span>
+                                <span class="detail-value">{{ mapping[4] }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">更新时间:</span>
+                                <span class="detail-value">{{ mapping[8] }}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mapping-actions">
+                            <form action="{{ url_for('delete_account_directory_route', mapping_id=mapping[0]) }}" 
+                                  method="post" style="display: inline;"
+                                  onsubmit="return confirm('确定要删除这个映射吗？')">
+                                <button type="submit" class="btn btn-danger btn-small">
+                                    🗑️ 删除
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="no-mappings-section">
+                    <div class="empty-state">
+                        <div class="empty-icon">📁</div>
+                        <h3>暂无账号目录映射</h3>
+                        <p>请添加上方的账号目录映射，这样用户在选择账号时就会自动使用对应的保存目录</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 使用说明 -->
+            <div class="usage-info-section">
+                <h3 class="section-title">ℹ️ 使用说明</h3>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-icon">🎯</div>
+                        <div class="info-content">
+                            <h4>映射作用</h4>
+                            <p>为每个账号指定专用的保存目录，用户选择账号时自动使用对应目录</p>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-icon">🔒</div>
+                        <div class="info-content">
+                            <h4>权限控制</h4>
+                            <p>只有管理员可以配置账号目录映射，确保目录使用规范</p>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-icon">⚡</div>
+                        <div class="info-content">
+                            <h4>自动应用</h4>
+                            <p>用户创建任务时，系统会自动应用账号对应的保存目录</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 映射文件夹浏览模态框 -->
+        <div id="mappingDirectoryBrowser" class="modal-overlay" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>📂 选择映射文件夹</h3>
+                    <button type="button" onclick="hideMappingDirectoryBrowser()" class="modal-close">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="current-path-display">
+                        <span class="path-label">当前路径:</span>
+                        <span id="mappingCurrentPath" class="path-value">/</span>
+                    </div>
+                    <div class="directory-list" id="mappingDirectoryList">
+                        <!-- 目录列表将在这里动态加载 -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="goToMappingParentDirectory()">
+                        ⬆️ 返回上级
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="selectMappingCurrentDirectory()">
+                        ✅ 选择当前目录
+                    </button>
+                    <button type="button" class="btn btn-danger" onclick="hideMappingDirectoryBrowser()">
+                        ❌ 取消
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 更新账号名称
+        function updateAccountName() {
+            const accountSelect = document.getElementById('account_id');
+            const accountNameInput = document.getElementById('account_name');
+            const selectedOption = accountSelect.options[accountSelect.selectedIndex];
+            
+            if (selectedOption.value) {
+                accountNameInput.value = selectedOption.getAttribute('data-name');
+            } else {
+                accountNameInput.value = '';
+            }
+        }
+        
+        // 映射目录浏览相关变量
+        let mappingCurrentFolderId = '-11';
+        let mappingCurrentDirectoryPath = '/';
+        let mappingDirectoryStack = [];
+        
+        // 显示映射目录浏览器
+        function showMappingDirectoryBrowser() {
+            const accountId = document.getElementById('account_id').value;
+            if (!accountId) {
+                alert('请先选择账号');
+                return;
+            }
+            
+            document.getElementById('mappingDirectoryBrowser').style.display = 'flex';
+            mappingCurrentFolderId = '-11';
+            mappingCurrentDirectoryPath = '/';
+            mappingDirectoryStack = []; // 重置目录栈
+            loadMappingDirectoryTree();
+        }
+        
+        // 隐藏映射目录浏览器
+        function hideMappingDirectoryBrowser() {
+            document.getElementById('mappingDirectoryBrowser').style.display = 'none';
+        }
+        
+        // 加载映射目录树
+        async function loadMappingDirectoryTree() {
+            const accountId = document.getElementById('account_id').value;
+            const pathDisplay = document.getElementById('mappingCurrentPath');
+            const directoryList = document.getElementById('mappingDirectoryList');
+            
+            pathDisplay.textContent = mappingCurrentDirectoryPath;
+            
+            try {
+                const response = await fetch(`/api/directories/${accountId}?folderId=${mappingCurrentFolderId}`);
+                const data = await response.json();
+                
+                if (data.success && data.data.length > 0) {
+                    directoryList.innerHTML = data.data.map(item => `
+                        <div class="directory-item" onclick="enterMappingDirectory('${item.id}', '${item.name}')">
+                            <span class="folder-icon">📁</span>
+                            <span class="folder-name">${item.name}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    directoryList.innerHTML = '<div class="no-directories">当前目录为空</div>';
+                }
+            } catch (error) {
+                console.error('获取映射目录失败:', error);
+                directoryList.innerHTML = '<div class="error">获取目录失败</div>';
+            }
+        }
+        
+        // 进入映射目录
+        function enterMappingDirectory(folderId, folderName) {
+            // 将当前目录信息推入栈中
+            mappingDirectoryStack.push({
+                id: mappingCurrentFolderId,
+                name: folderName,
+                path: mappingCurrentDirectoryPath
+            });
+            
+            mappingCurrentFolderId = folderId;
+            mappingCurrentDirectoryPath = mappingCurrentDirectoryPath + folderName + '/';
+            loadMappingDirectoryTree();
+        }
+        
+        // 返回映射上级目录
+        function goToMappingParentDirectory() {
+            if (mappingDirectoryStack.length > 0) {
+                const parent = mappingDirectoryStack.pop();
+                mappingCurrentFolderId = parent.id;
+                mappingCurrentDirectoryPath = parent.path;
+                loadMappingDirectoryTree();
+            }
+        }
+        
+        // 选择映射当前目录
+        function selectMappingCurrentDirectory() {
+            const folderId = mappingCurrentFolderId;
+            const folderPath = mappingCurrentDirectoryPath;
+            const folderName = folderPath.split('/').filter(p => p).pop() || '根目录';
+            
+            // 填充表单字段
+            document.getElementById('target_folder_id').value = folderId;
+            document.getElementById('target_folder_path').value = folderPath;
+            document.getElementById('folder_name').value = folderName;
+            
+            // 隐藏浏览器
+            hideMappingDirectoryBrowser();
+            
+            // 显示成功消息
+            showMessage(`✅ 已选择文件夹: ${folderName} (${folderPath})`, 'success');
+        }
+        
+        // 更新账号名称并显示浏览按钮
+        function updateAccountName() {
+            const accountSelect = document.getElementById('account_id');
+            const accountNameInput = document.getElementById('account_name');
+            const browseBtn = document.getElementById('browseMappingFolders');
+            const selectedOption = accountSelect.options[accountSelect.selectedIndex];
+            
+            if (selectedOption.value) {
+                accountNameInput.value = selectedOption.getAttribute('data-name');
+                browseBtn.style.display = 'inline-block';
+                
+                // 清空之前的文件夹选择
+                document.getElementById('target_folder_id').value = '';
+                document.getElementById('target_folder_path').value = '';
+                document.getElementById('folder_name').value = '';
+            } else {
+                accountNameInput.value = '';
+                browseBtn.style.display = 'none';
+            }
+        }
+        
+        // 显示消息
+        function showMessage(message, type) {
+            // 创建消息元素
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.innerHTML = `
+                <span class="message-icon">
+                    ${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}
+                </span>
+                <span class="message-text">${message}</span>
+            `;
+            
+            // 插入到页面顶部
+            const mainContent = document.querySelector('.main-content');
+            mainContent.insertBefore(messageDiv, mainContent.firstChild);
+            
+            // 3秒后自动移除
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 3000);
+        }
+        
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            updateAccountName();
+        });
+    </script>
+</body>
+</html> 

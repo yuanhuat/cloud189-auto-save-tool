@@ -37,6 +37,21 @@ def init_db():
         )
     ''')
     
+    # 创建账号-目录映射表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS account_directories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL,
+            account_name TEXT NOT NULL,
+            target_folder_id TEXT NOT NULL,
+            target_folder_path TEXT NOT NULL,
+            folder_name TEXT NOT NULL,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
     # 检查是否需要创建默认管理员账户
     cursor.execute('SELECT COUNT(*) FROM users WHERE is_admin = TRUE')
     admin_count = cursor.fetchone()[0]
@@ -119,6 +134,87 @@ def delete_user(user_id):
         conn.close()
         return True
     except:
+        return False
+
+def save_account_directory(account_id, account_name, target_folder_id, target_folder_path, folder_name):
+    """保存账号-目录映射"""
+    try:
+        conn = sqlite3.connect('settings.db')
+        cursor = conn.cursor()
+        
+        # 检查是否已存在该账号的映射
+        cursor.execute('SELECT id FROM account_directories WHERE account_id = ?', (account_id,))
+        existing = cursor.fetchone()
+        
+        if existing:
+            # 更新现有映射
+            cursor.execute('''
+                UPDATE account_directories 
+                SET target_folder_id = ?, target_folder_path = ?, folder_name = ?, 
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE account_id = ?
+            ''', (target_folder_id, target_folder_path, folder_name, account_id))
+        else:
+            # 创建新映射
+            cursor.execute('''
+                INSERT INTO account_directories (account_id, account_name, target_folder_id, target_folder_path, folder_name)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (account_id, account_name, target_folder_id, target_folder_path, folder_name))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"保存账号-目录映射失败: {e}")
+        return False
+
+def get_account_directories():
+    """获取所有账号-目录映射"""
+    try:
+        conn = sqlite3.connect('settings.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, account_id, account_name, target_folder_id, target_folder_path, 
+                   folder_name, is_active, created_at, updated_at
+            FROM account_directories 
+            WHERE is_active = TRUE
+            ORDER BY account_id
+        ''')
+        mappings = cursor.fetchall()
+        conn.close()
+        return mappings
+    except Exception as e:
+        print(f"获取账号-目录映射失败: {e}")
+        return []
+
+def get_account_directory(account_id):
+    """获取指定账号的目录映射"""
+    try:
+        conn = sqlite3.connect('settings.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT target_folder_id, target_folder_path, folder_name
+            FROM account_directories 
+            WHERE account_id = ? AND is_active = TRUE
+        ''', (account_id,))
+        mapping = cursor.fetchone()
+        conn.close()
+        return mapping
+    except Exception as e:
+        print(f"获取账号目录映射失败: {e}")
+        return None
+
+def delete_account_directory(mapping_id):
+    """删除账号-目录映射"""
+    try:
+        conn = sqlite3.connect('settings.db')
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM account_directories WHERE id = ?', (mapping_id,))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"删除账号-目录映射失败: {e}")
         return False
 
 def login_required(f):
@@ -534,6 +630,67 @@ def delete_user_route(user_id):
     else:
         flash('用户删除失败', 'error')
     return redirect(url_for('users'))
+
+@app.route('/account-directories')
+@admin_required
+def account_directories():
+    """账号-目录映射管理页面（仅管理员）"""
+    mappings = get_account_directories()
+    settings = get_settings()
+    accounts = []
+    if settings.get('project_address') and settings.get('api_key'):
+        accounts = get_accounts(settings['project_address'], settings['api_key'])
+    return render_template('account_directories.html', mappings=mappings, accounts=accounts, settings=settings)
+
+@app.route('/account-directories/save', methods=['POST'])
+@admin_required
+def save_account_directory_route():
+    """保存账号-目录映射（仅管理员）"""
+    account_id = request.form.get('account_id')
+    account_name = request.form.get('account_name')
+    target_folder_id = request.form.get('target_folder_id')
+    target_folder_path = request.form.get('target_folder_path')
+    folder_name = request.form.get('folder_name')
+    
+    if not all([account_id, account_name, target_folder_id, target_folder_path, folder_name]):
+        flash('请填写所有必填字段', 'error')
+        return redirect(url_for('account_directories'))
+    
+    if save_account_directory(account_id, account_name, target_folder_id, target_folder_path, folder_name):
+        flash('账号-目录映射保存成功', 'success')
+    else:
+        flash('账号-目录映射保存失败', 'error')
+    
+    return redirect(url_for('account_directories'))
+
+@app.route('/account-directories/delete/<int:mapping_id>', methods=['POST'])
+@admin_required
+def delete_account_directory_route(mapping_id):
+    """删除账号-目录映射（仅管理员）"""
+    if delete_account_directory(mapping_id):
+        flash('账号-目录映射删除成功', 'success')
+    else:
+        flash('账号-目录映射删除失败', 'error')
+    return redirect(url_for('account_directories'))
+
+@app.route('/api/account-directory/<int:account_id>')
+def get_account_directory_api(account_id):
+    """获取指定账号的目录映射API"""
+    mapping = get_account_directory(account_id)
+    if mapping:
+        return jsonify({
+            'success': True,
+            'data': {
+                'target_folder_id': mapping[0],
+                'target_folder_path': mapping[1],
+                'folder_name': mapping[2]
+            }
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'message': '未找到该账号的目录映射'
+        })
 
 @app.route('/settings', methods=['GET', 'POST'])
 @admin_required

@@ -30,6 +30,9 @@
                                 <a href="{{ url_for('users') }}" class="dropdown-item">
                                     👥 用户管理
                                 </a>
+                                <a href="{{ url_for('account_directories') }}" class="dropdown-item">
+                                    📁 账号目录映射
+                                </a>
                                 {% endif %}
                                 <a href="{{ url_for('logout') }}" class="dropdown-item">
                                     🚪 退出登录
@@ -197,7 +200,7 @@
                         <div class="settings-grid">
                             <div class="input-group">
                                 <label for="account_id">目标账号</label>
-                                <select id="account_id" name="account_id" required onchange="loadFavorites()">
+                                <select id="account_id" name="account_id" required onchange="handleAccountChange();">
                                     <option value="">请先配置项目地址和API密钥</option>
                                 </select>
                             </div>
@@ -257,7 +260,7 @@
                             🚀 创建任务
                        button>
                     </div>
-                </form>
+        </form>
             </div>
 
             <!-- 消息提示 -->
@@ -436,6 +439,14 @@
             try {
                 const response = await fetch(`/api/favorites/${accountId}`);
                 const data = await response.json();
+                
+                // 检查是否已经有账号目录映射
+                const hasMapping = savePathSelect.querySelector('option[data-mapping="true"]');
+                if (hasMapping) {
+                    // 如果已经有映射，不覆盖，只隐藏浏览按钮
+                    browseBtn.style.display = 'none';
+                    return;
+                }
                 
                 savePathSelect.innerHTML = '<option value="">请选择保存目录</option>';
                 
@@ -757,6 +768,92 @@
             const errorDiv = document.getElementById('share_parse_error');
             errorDiv.innerHTML = resultHtml;
             errorDiv.className = 'batch-results-container';
+        }
+
+        // 处理账号变更
+        async function handleAccountChange() {
+            const accountId = document.getElementById('account_id').value;
+            if (!accountId) {
+                // 清空保存目录选择
+                const savePathSelect = document.getElementById('save_path');
+                const browseBtn = document.getElementById('browseDirectories');
+                savePathSelect.innerHTML = '<option value="">请先选择账号</option>';
+                browseBtn.style.display = 'none';
+                return;
+            }
+            
+            // 首先尝试加载账号目录映射
+            await loadAccountDirectory();
+            
+            // 然后加载常用目录（如果映射失败）
+            await loadFavorites();
+        }
+        
+        // 加载账号目录映射
+        async function loadAccountDirectory() {
+            const accountId = document.getElementById('account_id').value;
+            if (!accountId) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/account-directory/${accountId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 自动设置保存目录
+                    const savePathSelect = document.getElementById('save_path');
+                    const browseBtn = document.getElementById('browseDirectories');
+                    const folderId = data.data.target_folder_id;
+                    const folderPath = data.data.target_folder_path;
+                    const folderName = data.data.folder_name;
+                    
+                    // 创建新的选项
+                    const option = document.createElement('option');
+                    option.value = `${folderId}|${folderPath}`;
+                    option.textContent = `🎯 ${folderName} (${folderPath}) [专用映射]`;
+                    option.selected = true;
+                    option.setAttribute('data-mapping', 'true'); // 标记为映射选项
+                    
+                    // 清空现有选项并添加新选项
+                    savePathSelect.innerHTML = '';
+                    savePathSelect.appendChild(option);
+                    
+                    // 隐藏浏览按钮，因为已经有专用映射
+                    browseBtn.style.display = 'none';
+                    
+                    // 显示成功消息
+                    showMessage(`✅ 已自动应用账号 ${accountId} 的专用保存目录: ${folderName}`, 'success');
+                } else {
+                    // 如果没有映射，显示提示
+                    showMessage(`ℹ️ 账号 ${accountId} 未配置专用保存目录，请手动选择`, 'info');
+                }
+            } catch (error) {
+                console.error('加载账号目录映射失败:', error);
+                showMessage('❌ 加载账号目录映射失败', 'error');
+            }
+        }
+        
+        // 显示消息
+        function showMessage(message, type) {
+            // 创建消息元素
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.innerHTML = `
+                <span class="message-icon">
+                    ${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}
+                </span>
+                <span class="message-text">${message}</span>
+            `;
+            
+            // 插入到页面顶部
+            const mainContent = document.querySelector('.main-content');
+            mainContent.insertBefore(messageDiv, mainContent.firstChild);
+            
+            // 3秒后自动移除
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 3000);
         }
 
         // 表单提交前验证
