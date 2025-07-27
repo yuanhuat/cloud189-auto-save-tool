@@ -449,7 +449,7 @@ body {
 .option-group {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
 }
 
 .checkbox-label {
@@ -2895,3 +2895,67 @@ input:checked + .slider:before {
         gap: 0.75rem;
     }
 }
+
+/* 自定义复选框样式 */
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: #374151;
+    user-select: none;
+    gap: 0.5rem;
+}
+
+.checkbox-label input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.checkbox-label .checkmark {
+    height: 18px;
+    width: 18px;
+    background-color: #fff;
+    border: 2px solid #d1d5db;
+    border-radius: 4px;
+    position: relative;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.checkbox-label:hover input ~ .checkmark {
+    border-color: #667eea;
+    background-color: #f8fafc;
+}
+
+.checkbox-label input:checked ~ .checkmark {
+    background-color: #667eea;
+    border-color: #667eea;
+}
+
+.checkbox-label .checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+    left: 5px;
+    top: 2px;
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.checkbox-label input:checked ~ .checkmark:after {
+    display: block;
+}
+
+.checkbox-label .option-text {
+    font-weight: 500;
+    color: #374151;
+}
+
+/* 响应式设计 */
