@@ -191,6 +191,63 @@ def mark_admin_logged_in():
     conn.commit()
     conn.close()
 
+def update_user(user_id, username, password=None, is_admin=None):
+    """更新用户信息"""
+    try:
+        conn = sqlite3.connect('settings.db')
+        cursor = conn.cursor()
+        
+        if password and is_admin is not None:
+            # 更新用户名、密码和管理员状态
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            cursor.execute('''
+                UPDATE users 
+                SET username = ?, password_hash = ?, is_admin = ?
+                WHERE id = ?
+            ''', (username, password_hash, is_admin, user_id))
+        elif password:
+            # 只更新用户名和密码
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            cursor.execute('''
+                UPDATE users 
+                SET username = ?, password_hash = ?
+                WHERE id = ?
+            ''', (username, password_hash, user_id))
+        elif is_admin is not None:
+            # 只更新用户名和管理员状态
+            cursor.execute('''
+                UPDATE users 
+                SET username = ?, is_admin = ?
+                WHERE id = ?
+            ''', (username, is_admin, user_id))
+        else:
+            # 只更新用户名
+            cursor.execute('''
+                UPDATE users 
+                SET username = ?
+                WHERE id = ?
+            ''', (username, user_id))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"更新用户信息失败: {e}")
+        return False
+
+def get_user_by_id(user_id):
+    """根据ID获取用户信息"""
+    try:
+        conn = sqlite3.connect('settings.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT id, username, is_admin, created_at FROM users WHERE id = ?', (user_id,))
+        user = cursor.fetchone()
+        conn.close()
+        return user
+    except Exception as e:
+        print(f"获取用户信息失败: {e}")
+        return None
+
 def save_account_directory(account_id, account_name, target_folder_id, target_folder_path, folder_name):
     """保存账号-目录映射"""
     try:
@@ -696,6 +753,51 @@ def delete_user_route(user_id):
     else:
         flash('用户删除失败', 'error')
     return redirect(url_for('users'))
+
+@app.route('/users/edit/<int:user_id>', methods=['GET', 'POST'])
+@admin_required
+def edit_user(user_id):
+    """编辑用户信息（仅管理员）"""
+    user = get_user_by_id(user_id)
+    if not user:
+        flash('用户不存在', 'error')
+        return redirect(url_for('users'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        is_admin = request.form.get('is_admin') == 'on'
+        
+        if not username:
+            flash('用户名不能为空', 'error')
+            return render_template('edit_user.html', user=user)
+        
+        # 检查用户名是否已被其他用户使用
+        if username != user[1]:  # 如果用户名有变化
+            conn = sqlite3.connect('settings.db')
+            cursor = conn.cursor()
+            cursor.execute('SELECT id FROM users WHERE username = ? AND id != ?', (username, user_id))
+            if cursor.fetchone():
+                flash('用户名已被使用', 'error')
+                conn.close()
+                return render_template('edit_user.html', user=user)
+            conn.close()
+        
+        # 更新用户信息
+        if password:
+            # 如果提供了新密码，更新密码
+            success = update_user(user_id, username, password, is_admin)
+        else:
+            # 如果没有提供新密码，只更新用户名和管理员状态
+            success = update_user(user_id, username, is_admin=is_admin)
+        
+        if success:
+            flash('用户信息更新成功', 'success')
+            return redirect(url_for('users'))
+        else:
+            flash('用户信息更新失败', 'error')
+    
+    return render_template('edit_user.html', user=user)
 
 @app.route('/account-directories')
 @admin_required

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✏️ 编辑用户 - 云盘自动保存</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 应用头部 -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 class="app-title">☁️ 云盘自动保存</h1>
+                    <p class="app-subtitle">智能云盘文件自动保存系统</p>
+                </div>
+                <div class="header-right">
+                    {% if session.username %}
+                        <div class="user-menu">
+                            <span class="user-info">
+                                👤 {{ session.username }}
+                                {% if session.is_admin %}<span class="admin-badge">👑</span>{% endif %}
+                            </span>
+                            <div class="user-dropdown">
+                                {% if session.is_admin %}
+                                <a href="{{ url_for('settings') }}" class="dropdown-item">
+                                    ⚙️ 系统设置
+                                </a>
+                                <a href="{{ url_for('users') }}" class="dropdown-item">
+                                    👥 用户管理
+                                </a>
+                                <a href="{{ url_for('account_directories') }}" class="dropdown-item">
+                                    📁 账号目录映射
+                                </a>
+                                <a href="{{ url_for('tasks') }}" class="dropdown-item">
+                                    📋 任务管理
+                                </a>
+                                <a href="{{ url_for('auto_delete_config') }}" class="dropdown-item">
+                                    🗑️ 自动删除配置
+                                </a>
+                                {% endif %}
+                                <a href="{{ url_for('logout') }}" class="dropdown-item">
+                                    🚪 退出登录
+                                </a>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="auth-buttons">
+                            <a href="{{ url_for('login') }}" class="btn btn-secondary">
+                                🔐 登录
+                            </a>
+                            <a href="{{ url_for('register') }}" class="btn btn-primary">
+                                📝 注册
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </header>
+
+        <!-- 主要内容 -->
+        <main class="main-content">
+            <!-- 消息提示 -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="message-container">
+                            <div class="message {{ 'success' if category == 'success' else 'error' if category == 'error' else 'info' }}">
+                                <span class="message-icon">
+                                    {% if category == 'success' %}✅
+                                    {% elif category == 'error' %}❌
+                                    {% else %}ℹ️{% endif %}
+                                </span>
+                                <span class="message-text">{{ message }}</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- 编辑用户表单 -->
+            <div class="edit-user-container">
+                <div class="section-header">
+                    <h3 class="section-title">✏️ 编辑用户信息</h3>
+                    <a href="{{ url_for('users') }}" class="btn btn-secondary">
+                        ← 返回用户列表
+                    </a>
+                </div>
+
+                <div class="edit-form-container">
+                    <form action="{{ url_for('edit_user', user_id=user[0]) }}" method="post" class="edit-form">
+                        <div class="form-section">
+                            <h4 class="section-subtitle">📝 基本信息</h4>
+                            
+                            <div class="input-group">
+                                <label for="username">用户名</label>
+                                <input type="text" id="username" name="username" 
+                                       value="{{ user[1] }}" required>
+                            </div>
+                            
+                            <div class="input-group">
+                                <label for="password">新密码</label>
+                                <input type="password" id="password" name="password" 
+                                       placeholder="留空表示不修改密码">
+                                <small class="form-hint">如果不修改密码，请留空此字段</small>
+                            </div>
+                            
+                            <div class="input-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="is_admin" 
+                                           {% if user[2] %}checked{% endif %}>
+                                    <span class="checkmark"></span>
+                                    <span class="option-text">管理员权限</span>
+                                </label>
+                                <small class="form-hint">勾选后该用户将拥有管理员权限</small>
+                            </div>
+                        </div>
+
+                        <div class="user-info-section">
+                            <h4 class="section-subtitle">ℹ️ 用户信息</h4>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <span class="info-label">用户ID:</span>
+                                    <span class="info-value">{{ user[0] }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">注册时间:</span>
+                                    <span class="info-value">{{ user[3] }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">当前状态:</span>
+                                    <span class="info-value">
+                                        {% if user[2] %}
+                                            <span class="status-badge admin">👑 管理员</span>
+                                        {% else %}
+                                            <span class="status-badge user">👤 普通用户</span>
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 表单操作 -->
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-success">
+                                💾 保存修改
+                            </button>
+                            <a href="{{ url_for('users') }}" class="btn btn-secondary">
+                                ❌ 取消
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html> 

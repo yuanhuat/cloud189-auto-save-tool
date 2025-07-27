@@ -2958,4 +2958,91 @@ input:checked + .slider:before {
     color: #374151;
 }
 
+/* 编辑用户页面样式 */
+.edit-user-container {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.edit-form-container {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.section-subtitle {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.form-hint {
+    display: block;
+    font-size: 0.875rem;
+    color: #718096;
+    margin-top: 0.25rem;
+}
+
+.user-info-section {
+    background: #f7fafc;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid #e2e8f0;
+}
+
+.info-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    font-weight: 500;
+    color: #4a5568;
+}
+
+.info-value {
+    color: #2d3748;
+    font-weight: 600;
+}
+
+@media (max-width: 768px) {
+    .edit-user-container {
+        padding: 1rem;
+    }
+    
+    .edit-form-container {
+        max-width: 100%;
+    }
+    
+    .info-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+}
+
 /* 响应式设计 */
