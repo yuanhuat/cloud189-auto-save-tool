@@ -102,6 +102,19 @@
                         </div>
                     </div>
 
+                    <!-- 注册功能控制 -->
+                    <div class="form-section">
+                        <h3 class="section-title">🔑 注册功能控制</h3>
+                        <div class="input-group switch-group">
+                            <label class="switch">
+                                <input type="checkbox" id="registration_enabled" name="registration_enabled" {{ 'checked' if settings.registration_enabled else '' }}>
+                                <span class="slider round"></span>
+                            </label>
+                            <label for="registration_enabled" class="switch-label">允许新用户注册</label>
+                        </div>
+                        <small class="form-text">开启后允许新用户通过注册页面创建账户。</small>
+                    </div>
+
                     <!-- 连接测试 -->
                     <div class="form-section">
                         <h3 class="section-title">🔍 连接测试</h3>

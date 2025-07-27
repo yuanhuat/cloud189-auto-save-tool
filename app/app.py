@@ -24,6 +24,7 @@ def init_db():
             project_address TEXT,
             api_key TEXT,
             tmdb_api_key TEXT,
+            registration_enabled BOOLEAN DEFAULT TRUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -32,6 +33,13 @@ def init_db():
     # 如果表已存在但没有 tmdb_api_key 字段，则添加该字段
     try:
         cursor.execute('ALTER TABLE settings ADD COLUMN tmdb_api_key TEXT')
+    except sqlite3.OperationalError:
+        # 字段已存在，忽略错误
+        pass
+    
+    # 如果表已存在但没有 registration_enabled 字段，则添加该字段并设置默认值
+    try:
+        cursor.execute('ALTER TABLE settings ADD COLUMN registration_enabled BOOLEAN DEFAULT TRUE')
     except sqlite3.OperationalError:
         # 字段已存在，忽略错误
         pass
@@ -119,21 +127,21 @@ def get_settings():
     """获取最新的设置信息"""
     conn = sqlite3.connect('settings.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT project_address, api_key, tmdb_api_key FROM settings ORDER BY id DESC LIMIT 1')
+    cursor.execute('SELECT project_address, api_key, tmdb_api_key, registration_enabled FROM settings ORDER BY id DESC LIMIT 1')
     result = cursor.fetchone()
     conn.close()
     if result:
-        return {'project_address': result[0], 'api_key': result[1], 'tmdb_api_key': result[2]}
-    return {'project_address': '', 'api_key': '', 'tmdb_api_key': ''}
+        return {'project_address': result[0], 'api_key': result[1], 'tmdb_api_key': result[2], 'registration_enabled': bool(result[3])}
+    return {'project_address': '', 'api_key': '', 'tmdb_api_key': '', 'registration_enabled': True}
 
-def save_settings(project_address, api_key, tmdb_api_key):
+def save_settings(project_address, api_key, tmdb_api_key, registration_enabled):
     """保存设置信息到数据库"""
     conn = sqlite3.connect('settings.db')
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO settings (project_address, api_key, tmdb_api_key)
-        VALUES (?, ?, ?)
-    ''', (project_address, api_key, tmdb_api_key))
+        INSERT INTO settings (project_address, api_key, tmdb_api_key, registration_enabled)
+        VALUES (?, ?, ?, ?)
+    ''', (project_address, api_key, tmdb_api_key, registration_enabled))
     conn.commit()
     conn.close()
 
@@ -714,6 +722,11 @@ def login():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     """注册页面"""
+    settings = get_settings()
+    if not settings['registration_enabled']:
+        flash('注册功能已被管理员禁用', 'error')
+        return redirect(url_for('login'))
+
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -878,8 +891,9 @@ def settings():
         project_address = request.form.get('project_address')
         api_key = request.form.get('api_key')
         tmdb_api_key = request.form.get('tmdb_api_key')
+        registration_enabled = request.form.get('registration_enabled') == 'on'
         # 保存设置到数据库
-        save_settings(project_address, api_key, tmdb_api_key)
+        save_settings(project_address, api_key, tmdb_api_key, registration_enabled)
         print(f"Project Address: {project_address}, API Key: {api_key}")
         
         # 保存后立即获取账号信息
