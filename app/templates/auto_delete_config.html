@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自动删除配置 - Cloud189 自动转存</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 头部导航 -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 class="app-title">☁️ 云盘自动保存</h1>
+                    <p class="app-subtitle">智能云盘文件自动保存系统</p>
+                </div>
+                <div class="header-right">
+                    {% if session.username %}
+                        <div class="user-menu">
+                            <span class="user-info">
+                                👤 {{ session.username }}
+                                {% if session.is_admin %}<span class="admin-badge">👑</span>{% endif %}
+                            </span>
+                            <div class="user-dropdown">
+                                {% if session.is_admin %}
+                                <a href="{{ url_for('settings') }}" class="dropdown-item">
+                                    ⚙️ 系统设置
+                                </a>
+                                <a href="{{ url_for('users') }}" class="dropdown-item">
+                                    👥 用户管理
+                                </a>
+                                <a href="{{ url_for('account_directories') }}" class="dropdown-item">
+                                    📁 账号目录映射
+                                </a>
+                                <a href="{{ url_for('tasks') }}" class="dropdown-item">
+                                    📋 任务管理
+                                </a>
+                                <a href="{{ url_for('auto_delete_config') }}" class="dropdown-item">
+                                    🗑️ 自动删除配置
+                                </a>
+                                {% endif %}
+                                <a href="{{ url_for('logout') }}" class="dropdown-item">
+                                    🚪 退出登录
+                                </a>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="auth-buttons">
+                            <a href="{{ url_for('login') }}" class="btn btn-secondary">
+                                🔐 登录
+                            </a>
+                            <a href="{{ url_for('register') }}" class="btn btn-primary">
+                                📝 注册
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </header>
+
+        <!-- 主要内容 -->
+        <main class="main-content">
+            <!-- 页面标题 -->
+            <div class="page-header">
+                <div class="header-content">
+                    <div class="header-left">
+                        <h2>🗑️ 自动删除配置</h2>
+                        <p>配置任务自动删除规则，当任务在特定状态停留指定天数后自动删除</p>
+                    </div>
+                    <div class="header-actions">
+                        <button id="previewBtn" class="btn btn-secondary">
+                            <span class="btn-icon">👁️</span>
+                            <span class="btn-text">预览</span>
+                        </button>
+                        <button id="executeBtn" class="btn btn-danger">
+                            <span class="btn-icon">🗑️</span>
+                            <span class="btn-text">执行删除</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 消息提示 -->
+            <div id="messageContainer" class="message-container" style="display: none;">
+                <div class="message" id="message">
+                    <span class="message-icon" id="messageIcon">ℹ️</span>
+                    <span class="message-text" id="messageText"></span>
+                </div>
+            </div>
+
+            <!-- 配置说明 -->
+            <div class="info-section">
+                <div class="info-card">
+                    <div class="info-icon">ℹ️</div>
+                    <div class="info-content">
+                        <h4>自动删除说明</h4>
+                        <p>系统会根据任务状态和停留时间自动删除符合条件的任务。您可以配置不同状态的任务删除规则，包括删除天数和是否同时删除云盘文件。</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 配置列表 -->
+            <div class="config-section">
+                <div class="config-header">
+                    <h3>📋 删除规则配置</h3>
+                </div>
+                <div class="config-grid">
+                    {% for config in configs %}
+                    <div class="config-card" data-config-id="{{ config.id }}">
+                        <div class="config-header">
+                            <div class="status-info">
+                                <span class="status-icon">{{ config.status | get_status_icon }}</span>
+                                <span class="status-text">{{ config.status | get_status_text }}</span>
+                            </div>
+                            <div class="config-toggle">
+                                <label class="switch">
+                                    <input type="checkbox" class="enabled-toggle" 
+                                           {% if config.enabled %}checked{% endif %}>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="config-content">
+                            <div class="config-item">
+                                <label>删除天数</label>
+                                <input type="number" class="days-input" value="{{ config.days }}" 
+                                       min="1" max="365" placeholder="天数">
+                            </div>
+                            <div class="config-item">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" class="delete-cloud-toggle" 
+                                           {% if config.delete_cloud %}checked{% endif %}>
+                                    <span class="checkmark"></span>
+                                    <span class="option-text">同时删除云盘文件</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="config-footer">
+                            <button class="btn btn-primary btn-small save-config-btn">
+                                <span class="btn-icon">💾</span>
+                                <span class="btn-text">保存</span>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- 预览结果 -->
+            <div id="previewSection" class="preview-section" style="display: none;">
+                <div class="preview-header">
+                    <h3>👁️ 删除预览</h3>
+                    <span id="previewCount" class="preview-count">0 个任务将被删除</span>
+                </div>
+                <div id="previewList" class="preview-list">
+                    <!-- 预览内容将在这里动态加载 -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 执行确认模态框 -->
+    <div id="executeModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span class="modal-icon">⚠️</span>
+                    <h3>确认执行自动删除</h3>
+                </div>
+                <button type="button" onclick="hideExecuteModal()" class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="execute-content">
+                    <div class="execute-icon">🚨</div>
+                    <div class="execute-text">
+                        <h4>确定要执行自动删除吗？</h4>
+                        <p>此操作将根据配置规则删除符合条件的任务，操作不可撤销！</p>
+                        <div id="executeSummary" class="execute-summary">
+                            <!-- 执行摘要将在这里显示 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="hideExecuteModal()">
+                    <span class="btn-icon">❌</span>
+                    <span class="btn-text">取消</span>
+                </button>
+                <button type="button" class="btn btn-danger" onclick="confirmExecute()">
+                    <span class="btn-icon">🗑️</span>
+                    <span class="btn-text">确认执行</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentPreviewData = null;
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+        });
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 预览按钮
+            document.getElementById('previewBtn').addEventListener('click', previewAutoDelete);
+            
+            // 执行按钮
+            document.getElementById('executeBtn').addEventListener('click', showExecuteModal);
+            
+            // 配置保存按钮
+            document.querySelectorAll('.save-config-btn').forEach(btn => {
+                btn.addEventListener('click', saveConfig);
+            });
+        }
+
+        // 获取状态图标
+        function getStatusIcon(status) {
+            const iconMap = {
+                'pending': '⏳',
+                'processing': '📺',
+                'completed': '✅',
+                'failed': '❌'
+            };
+            return iconMap[status] || '❓';
+        }
+
+        // 获取状态文本
+        function getStatusText(status) {
+            const textMap = {
+                'pending': '等待中',
+                'processing': '追剧中',
+                'completed': '已完成',
+                'failed': '失败'
+            };
+            return textMap[status] || status;
+        }
+
+        // 保存配置
+        async function saveConfig(event) {
+            const configCard = event.target.closest('.config-card');
+            const configId = configCard.dataset.configId;
+            const daysInput = configCard.querySelector('.days-input');
+            const deleteCloudToggle = configCard.querySelector('.delete-cloud-toggle');
+            const enabledToggle = configCard.querySelector('.enabled-toggle');
+            
+            const days = parseInt(daysInput.value);
+            const deleteCloud = deleteCloudToggle.checked;
+            const enabled = enabledToggle.checked;
+            
+            if (days < 1 || days > 365) {
+                showMessage('删除天数必须在1-365之间', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/auto-delete/configs/${configId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        days: days,
+                        delete_cloud: deleteCloud,
+                        enabled: enabled
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('配置保存成功', 'success');
+                } else {
+                    showMessage(data.error || '保存失败', 'error');
+                }
+            } catch (error) {
+                showMessage('保存配置失败: ' + error.message, 'error');
+            }
+        }
+
+        // 预览自动删除
+        async function previewAutoDelete() {
+            try {
+                showLoading(true);
+                
+                const response = await fetch('/api/auto-delete/preview');
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentPreviewData = data.data;
+                    renderPreview(data.data);
+                    showMessage(`找到 ${data.count} 个符合条件的任务`, 'info');
+                } else {
+                    showMessage(data.error || '预览失败', 'error');
+                }
+            } catch (error) {
+                showMessage('预览失败: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 渲染预览
+        function renderPreview(tasks) {
+            const previewSection = document.getElementById('previewSection');
+            const previewCount = document.getElementById('previewCount');
+            const previewList = document.getElementById('previewList');
+            
+            previewCount.textContent = `${tasks.length} 个任务将被删除`;
+            
+            if (tasks.length === 0) {
+                previewList.innerHTML = '<div class="empty-preview">没有符合条件的任务</div>';
+            } else {
+                previewList.innerHTML = tasks.map(item => `
+                    <div class="preview-item">
+                        <div class="preview-header">
+                            <div class="task-name">${item.task.resourceName || '未知任务'}</div>
+                            <div class="task-status">
+                                <span class="status-badge status-${item.task.status}">
+                                    ${getStatusIcon(item.task.status)} ${getStatusText(item.task.status)}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="preview-details">
+                            <div class="detail-item">
+                                <span class="detail-label">停留天数:</span>
+                                <span class="detail-value">${item.days_diff} 天</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">删除云盘文件:</span>
+                                <span class="detail-value">${item.config.delete_cloud ? '是' : '否'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">最后检查:</span>
+                                <span class="detail-value">${formatDate(item.task.lastCheckTime)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            previewSection.style.display = 'block';
+        }
+
+        // 显示执行模态框
+        function showExecuteModal() {
+            if (!currentPreviewData || currentPreviewData.length === 0) {
+                showMessage('请先预览要删除的任务', 'warning');
+                return;
+            }
+            
+            const executeSummary = document.getElementById('executeSummary');
+            executeSummary.innerHTML = `
+                <div class="summary-item">
+                    <span class="summary-label">任务数量:</span>
+                    <span class="summary-value">${currentPreviewData.length} 个</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">删除云盘文件:</span>
+                    <span class="summary-value">${currentPreviewData.some(item => item.config.delete_cloud) ? '是' : '否'}</span>
+                </div>
+            `;
+            
+            document.getElementById('executeModal').style.display = 'flex';
+        }
+
+        // 隐藏执行模态框
+        function hideExecuteModal() {
+            document.getElementById('executeModal').style.display = 'none';
+        }
+
+        // 确认执行
+        async function confirmExecute() {
+            try {
+                showLoading(true);
+                hideExecuteModal();
+                
+                const response = await fetch('/api/auto-delete/execute', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(data.message, 'success');
+                    // 重新预览
+                    setTimeout(() => {
+                        previewAutoDelete();
+                    }, 1000);
+                } else {
+                    showMessage(data.error || '执行失败', 'error');
+                }
+            } catch (error) {
+                showMessage('执行失败: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 格式化日期
+        function formatDate(dateString) {
+            if (!dateString) return '未知';
+            const date = new Date(dateString);
+            return date.toLocaleString('zh-CN');
+        }
+
+        // 显示消息
+        function showMessage(message, type = 'info') {
+            const messageContainer = document.getElementById('messageContainer');
+            const messageElement = document.getElementById('message');
+            const messageIcon = document.getElementById('messageIcon');
+            const messageText = document.getElementById('messageText');
+            
+            messageElement.className = `message ${type}`;
+            messageText.textContent = message;
+            
+            const iconMap = {
+                'success': '✅',
+                'error': '❌',
+                'warning': '⚠️',
+                'info': 'ℹ️'
+            };
+            messageIcon.textContent = iconMap[type] || 'ℹ️';
+            
+            messageContainer.style.display = 'block';
+            
+            setTimeout(() => {
+                messageContainer.style.display = 'none';
+            }, 5000);
+        }
+
+        // 显示加载状态
+        function showLoading(show) {
+            const executeBtn = document.getElementById('executeBtn');
+            const previewBtn = document.getElementById('previewBtn');
+            
+            if (show) {
+                executeBtn.disabled = true;
+                previewBtn.disabled = true;
+                executeBtn.innerHTML = '<span class="btn-icon">⏳</span><span class="btn-text">执行中...</span>';
+                previewBtn.innerHTML = '<span class="btn-icon">⏳</span><span class="btn-text">加载中...</span>';
+            } else {
+                executeBtn.disabled = false;
+                previewBtn.disabled = false;
+                executeBtn.innerHTML = '<span class="btn-icon">🗑️</span><span class="btn-text">执行删除</span>';
+                previewBtn.innerHTML = '<span class="btn-icon">👁️</span><span class="btn-text">预览</span>';
+            }
+        }
+    </script>
+</body>
+</html> 

@@ -6,12 +6,13 @@ import json
 import hashlib
 import secrets
 from functools import wraps
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)  # 生成随机密钥用于session
 
 def init_db():
-    """初始化数据库，创建设置表和用户表"""
+    """初始化数据库"""
     conn = sqlite3.connect('settings.db')
     cursor = conn.cursor()
     
@@ -52,6 +53,19 @@ def init_db():
         )
     ''')
     
+    # 创建自动删除任务配置表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS auto_delete_config (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            status TEXT NOT NULL,
+            days INTEGER NOT NULL DEFAULT 30,
+            delete_cloud BOOLEAN DEFAULT FALSE,
+            enabled BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
     # 检查是否需要创建默认管理员账户
     cursor.execute('SELECT COUNT(*) FROM users WHERE is_admin = TRUE')
     admin_count = cursor.fetchone()[0]
@@ -64,6 +78,22 @@ def init_db():
             VALUES (?, ?, ?)
         ''', ('admin', default_password, True))
         print("✅ 已创建默认管理员账户: admin/admin123")
+    
+    # 插入默认自动删除配置
+    default_configs = [
+        ('pending', 30, False),    # 等待中任务30天后删除，不删除云盘文件
+        ('processing', 60, False), # 追剧中任务60天后删除，不删除云盘文件
+        ('completed', 90, True),   # 已完成任务90天后删除，删除云盘文件
+        ('failed', 7, False)       # 失败任务7天后删除，不删除云盘文件
+    ]
+    
+    for status, days, delete_cloud in default_configs:
+        cursor.execute('SELECT * FROM auto_delete_config WHERE status = ?', (status,))
+        if not cursor.fetchone():
+            cursor.execute('''
+                INSERT INTO auto_delete_config (status, days, delete_cloud, enabled) 
+                VALUES (?, ?, ?, ?)
+            ''', (status, days, delete_cloud, True))
     
     conn.commit()
     conn.close()
@@ -753,7 +783,7 @@ def refresh_accounts():
 @app.route('/test-directory')
 def test_directory():
     """目录选择测试页面"""
-    return send_from_directory('.', 'test_directory_ui.html')
+    return render_template('test_directory.html')
 
 # 在应用启动时初始化数据库
 if not os.path.exists('settings.db'):
@@ -868,7 +898,274 @@ def delete_tasks_batch():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+# 自动删除配置管理函数
+def get_auto_delete_configs():
+    """获取自动删除配置"""
+    conn = sqlite3.connect('settings.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM auto_delete_config ORDER BY status')
+    configs = cursor.fetchall()
+    conn.close()
+    
+    return [
+        {
+            'id': row[0],
+            'status': row[1],
+            'days': row[2],
+            'delete_cloud': bool(row[3]),
+            'enabled': bool(row[4]),
+            'created_at': row[5],
+            'updated_at': row[6]
+        }
+        for row in configs
+    ]
+
+def update_auto_delete_config(config_id, days, delete_cloud, enabled):
+    """更新自动删除配置"""
+    conn = sqlite3.connect('settings.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE auto_delete_config 
+        SET days = ?, delete_cloud = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+    ''', (days, delete_cloud, enabled, config_id))
+    conn.commit()
+    conn.close()
+
+def get_tasks_for_auto_delete():
+    """获取需要自动删除的任务"""
+    try:
+        settings = get_settings()
+        project_address = settings.get('project_address')
+        api_key = settings.get('api_key')
+        
+        if not project_address or not api_key:
+            return []
+        
+        # 获取所有任务
+        headers = {'x-api-key': api_key}
+        response = requests.get(f"{project_address}/api/tasks", headers=headers, timeout=10)
+        
+        if response.status_code != 200:
+            return []
+        
+        data = response.json()
+        if not data.get('success'):
+            return []
+        
+        tasks = data.get('data', [])
+        configs = get_auto_delete_configs()
+        
+        tasks_to_delete = []
+        now = datetime.now()
+        
+        for task in tasks:
+            task_status = task.get('status')
+            last_check_time = task.get('lastCheckTime')
+            
+            if not last_check_time:
+                continue
+                
+            # 找到对应的配置
+            config = next((c for c in configs if c['status'] == task_status and c['enabled']), None)
+            if not config:
+                continue
+            
+            # 计算天数差
+            try:
+                last_check = datetime.fromisoformat(last_check_time.replace('Z', '+00:00'))
+                days_diff = (now - last_check).days
+                
+                if days_diff >= config['days']:
+                    tasks_to_delete.append({
+                        'task': task,
+                        'config': config,
+                        'days_diff': days_diff
+                    })
+            except Exception as e:
+                print(f"解析时间失败: {e}")
+                continue
+        
+        return tasks_to_delete
+        
+    except Exception as e:
+        print(f"获取自动删除任务失败: {e}")
+        return []
+
+def execute_auto_delete():
+    """执行自动删除任务"""
+    try:
+        tasks_to_delete = get_tasks_for_auto_delete()
+        
+        if not tasks_to_delete:
+            return {"success": True, "message": "没有需要自动删除的任务", "deleted_count": 0}
+        
+        settings = get_settings()
+        project_address = settings.get('project_address')
+        api_key = settings.get('api_key')
+        
+        if not project_address or not api_key:
+            return {"success": False, "message": "配置信息不完整"}
+        
+        headers = {'x-api-key': api_key}
+        deleted_count = 0
+        
+        for item in tasks_to_delete:
+            task = item['task']
+            config = item['config']
+            
+            try:
+                # 调用删除API
+                delete_url = f"{project_address}/api/tasks/{task['id']}"
+                delete_data = {'deleteCloud': config['delete_cloud']}
+                
+                response = requests.delete(delete_url, headers=headers, json=delete_data, timeout=10)
+                
+                if response.status_code == 200:
+                    deleted_count += 1
+                    print(f"自动删除任务成功: {task.get('resourceName', 'Unknown')} (ID: {task['id']})")
+                else:
+                    print(f"自动删除任务失败: {task.get('resourceName', 'Unknown')} (ID: {task['id']})")
+                    
+            except Exception as e:
+                print(f"删除任务异常: {task.get('resourceName', 'Unknown')} (ID: {task['id']}): {e}")
+        
+        return {
+            "success": True, 
+            "message": f"自动删除完成，共删除 {deleted_count} 个任务",
+            "deleted_count": deleted_count,
+            "total_found": len(tasks_to_delete)
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"执行自动删除失败: {e}"}
+
+# 自动删除配置路由
+@app.route('/auto-delete')
+@admin_required
+def auto_delete_config():
+    """自动删除配置页面"""
+    configs = get_auto_delete_configs()
+    return render_template('auto_delete_config.html', configs=configs)
+
+@app.route('/api/auto-delete/configs')
+@admin_required
+def get_auto_delete_configs_api():
+    """获取自动删除配置API"""
+    try:
+        configs = get_auto_delete_configs()
+        return jsonify({'success': True, 'data': configs})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/auto-delete/configs/<int:config_id>', methods=['PUT'])
+@admin_required
+def update_auto_delete_config_api(config_id):
+    """更新自动删除配置API"""
+    try:
+        data = request.get_json()
+        days = data.get('days', 30)
+        delete_cloud = data.get('delete_cloud', False)
+        enabled = data.get('enabled', True)
+        
+        update_auto_delete_config(config_id, days, delete_cloud, enabled)
+        return jsonify({'success': True, 'message': '配置更新成功'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/auto-delete/execute', methods=['POST'])
+@admin_required
+def execute_auto_delete_api():
+    """执行自动删除API"""
+    try:
+        result = execute_auto_delete()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/auto-delete/preview')
+@admin_required
+def preview_auto_delete():
+    """预览自动删除任务API"""
+    try:
+        tasks_to_delete = get_tasks_for_auto_delete()
+        return jsonify({
+            'success': True, 
+            'data': tasks_to_delete,
+            'count': len(tasks_to_delete)
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/auto-delete/schedule', methods=['POST'])
+@admin_required
+def schedule_auto_delete():
+    """定时执行自动删除API"""
+    try:
+        # 这里可以集成定时任务系统，比如APScheduler
+        # 目前先直接执行一次
+        result = execute_auto_delete()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+# 添加一个简单的定时任务（每小时执行一次）
+import threading
+import time
+
+def auto_delete_scheduler():
+    """自动删除定时任务"""
+    while True:
+        try:
+            # 每小时执行一次
+            time.sleep(3600)  # 3600秒 = 1小时
+            print("🕐 执行定时自动删除任务...")
+            result = execute_auto_delete()
+            if result['success'] and result['deleted_count'] > 0:
+                print(f"✅ 定时删除完成: {result['message']}")
+            else:
+                print(f"ℹ️ 定时删除: {result['message']}")
+        except Exception as e:
+            print(f"❌ 定时删除任务异常: {e}")
+
+# 启动定时任务线程
+def start_auto_delete_scheduler():
+    """启动自动删除定时任务"""
+    scheduler_thread = threading.Thread(target=auto_delete_scheduler, daemon=True)
+    scheduler_thread.start()
+    print("🚀 自动删除定时任务已启动")
+
+# 模板辅助函数
+@app.template_filter('get_status_icon')
+def get_status_icon(status):
+    """获取状态图标"""
+    icon_map = {
+        'pending': '⏳',
+        'processing': '📺',
+        'completed': '✅',
+        'failed': '❌'
+    }
+    return icon_map.get(status, '❓')
+
+@app.template_filter('get_status_text')
+def get_status_text(status):
+    """获取状态文本"""
+    text_map = {
+        'pending': '等待中',
+        'processing': '追剧中',
+        'completed': '已完成',
+        'failed': '失败'
+    }
+    return text_map.get(status, status)
+
+# 自动删除配置路由
+
 if __name__ == '__main__':
     # 初始化数据库
     init_db()
-    app.run(debug=True)
+    
+    # 启动自动删除定时任务
+    start_auto_delete_scheduler()
+    
+    # 启动Flask应用
+    app.run(debug=True, host='0.0.0.0', port=5000)
