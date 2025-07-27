@@ -1,15 +1,21 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 import sqlite3
 import os
 import requests
 import json
+import hashlib
+import secrets
+from functools import wraps
 
 app = Flask(__name__)
+app.secret_key = secrets.token_hex(16)  # 生成随机密钥用于session
 
 def init_db():
-    """初始化数据库，创建设置表"""
+    """初始化数据库，创建设置表和用户表"""
     conn = sqlite3.connect('settings.db')
     cursor = conn.cursor()
+    
+    # 创建设置表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -19,6 +25,31 @@ def init_db():
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    
+    # 创建用户表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            is_admin BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # 检查是否需要创建默认管理员账户
+    cursor.execute('SELECT COUNT(*) FROM users WHERE is_admin = TRUE')
+    admin_count = cursor.fetchone()[0]
+    
+    if admin_count == 0:
+        # 创建默认管理员账户 (admin/admin123)
+        default_password = hashlib.sha256('admin123'.encode()).hexdigest()
+        cursor.execute('''
+            INSERT INTO users (username, password_hash, is_admin)
+            VALUES (?, ?, ?)
+        ''', ('admin', default_password, True))
+        print("✅ 已创建默认管理员账户: admin/admin123")
+    
     conn.commit()
     conn.close()
 
@@ -43,6 +74,73 @@ def save_settings(project_address, api_key):
     ''', (project_address, api_key))
     conn.commit()
     conn.close()
+
+def verify_user(username, password):
+    """验证用户登录"""
+    conn = sqlite3.connect('settings.db')
+    cursor = conn.cursor()
+    password_hash = hashlib.sha256(password.encode()).hexdigest()
+    cursor.execute('SELECT id, username, is_admin FROM users WHERE username = ? AND password_hash = ?', 
+                   (username, password_hash))
+    user = cursor.fetchone()
+    conn.close()
+    return user
+
+def create_user(username, password, is_admin=False):
+    """创建新用户"""
+    try:
+        conn = sqlite3.connect('settings.db')
+        cursor = conn.cursor()
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        cursor.execute('INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, ?)',
+                       (username, password_hash, is_admin))
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.IntegrityError:
+        return False  # 用户名已存在
+
+def get_all_users():
+    """获取所有用户列表（仅管理员）"""
+    conn = sqlite3.connect('settings.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, username, is_admin, created_at FROM users ORDER BY created_at DESC')
+    users = cursor.fetchall()
+    conn.close()
+    return users
+
+def delete_user(user_id):
+    """删除用户（仅管理员）"""
+    try:
+        conn = sqlite3.connect('settings.db')
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        conn.commit()
+        conn.close()
+        return True
+    except:
+        return False
+
+def login_required(f):
+    """登录验证装饰器"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    """管理员权限验证装饰器"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        if not session.get('is_admin'):
+            flash('需要管理员权限', 'error')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 def get_accounts(project_address, api_key):
     """调用API获取账号信息"""
@@ -359,11 +457,88 @@ def index():
     if settings.get('project_address') and settings.get('api_key'):
         accounts = get_accounts(settings['project_address'], settings['api_key'])
     
-    return render_template('index.html', settings=settings, accounts=accounts)
+    return render_template('index.html', settings=settings, accounts=accounts, 
+                         user=session.get('username'), is_admin=session.get('is_admin'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """登录页面"""
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if not username or not password:
+            flash('请输入用户名和密码', 'error')
+            return render_template('login.html')
+        
+        user = verify_user(username, password)
+        if user:
+            session['user_id'] = user[0]
+            session['username'] = user[1]
+            session['is_admin'] = user[2]
+            flash('登录成功！', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('用户名或密码错误', 'error')
+    
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    """注册页面"""
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not username or not password:
+            flash('请输入用户名和密码', 'error')
+            return render_template('register.html')
+        
+        if password != confirm_password:
+            flash('两次输入的密码不一致', 'error')
+            return render_template('register.html')
+        
+        if len(password) < 6:
+            flash('密码长度至少6位', 'error')
+            return render_template('register.html')
+        
+        if create_user(username, password):
+            flash('注册成功！请登录', 'success')
+            return redirect(url_for('login'))
+        else:
+            flash('用户名已存在', 'error')
+    
+    return render_template('register.html')
+
+@app.route('/logout')
+def logout():
+    """退出登录"""
+    session.clear()
+    flash('已退出登录', 'info')
+    return redirect(url_for('index'))
+
+@app.route('/users')
+@admin_required
+def users():
+    """用户管理页面（仅管理员）"""
+    users_list = get_all_users()
+    return render_template('users.html', users=users_list)
+
+@app.route('/users/delete/<int:user_id>', methods=['POST'])
+@admin_required
+def delete_user_route(user_id):
+    """删除用户（仅管理员）"""
+    if delete_user(user_id):
+        flash('用户删除成功', 'success')
+    else:
+        flash('用户删除失败', 'error')
+    return redirect(url_for('users'))
 
 @app.route('/settings', methods=['GET', 'POST'])
+@admin_required
 def settings():
-    """渲染和处理设置页面，用于配置项目地址和API Key"""
+    """渲染和处理设置页面，用于配置项目地址和API Key（需要管理员权限）"""
     if request.method == 'POST':
         project_address = request.form.get('project_address')
         api_key = request.form.get('api_key')

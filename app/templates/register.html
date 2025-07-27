@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📝 用户注册 - 云盘自动保存</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 应用头部 -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 class="app-title">📝 用户注册</h1>
+                    <p class="app-subtitle">创建您的账户</p>
+                </div>
+                <div class="header-right">
+                    <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                        🏠 返回首页
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主要内容 -->
+        <main class="main-content">
+            <!-- 消息提示 -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="message-container">
+                            <div class="message {{ 'success' if category == 'success' else 'error' if category == 'error' else 'info' }}">
+                                <span class="message-icon">
+                                    {% if category == 'success' %}✅
+                                    {% elif category == 'error' %}❌
+                                    {% else %}ℹ️{% endif %}
+                                </span>
+                                <span class="message-text">{{ message }}</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- 注册表单 -->
+            <div class="auth-container">
+                <form action="{{ url_for('register') }}" method="post" class="auth-form">
+                    <div class="form-section">
+                        <h3 class="section-title">👤 账户信息</h3>
+                        <div class="input-group">
+                            <label for="username">用户名</label>
+                            <input type="text" id="username" name="username" 
+                                   placeholder="请输入用户名" required>
+                            <small class="form-text">用户名长度3-20个字符</small>
+                        </div>
+                        <div class="input-group">
+                            <label for="password">密码</label>
+                            <input type="password" id="password" name="password" 
+                                   placeholder="请输入密码" required>
+                            <small class="form-text">密码长度至少6位</small>
+                        </div>
+                        <div class="input-group">
+                            <label for="confirm_password">确认密码</label>
+                            <input type="password" id="confirm_password" name="confirm_password" 
+                                   placeholder="请再次输入密码" required>
+                            <small class="form-text">请确保两次输入的密码一致</small>
+                        </div>
+                    </div>
+
+                    <!-- 提交按钮 -->
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success btn-large">
+                            📝 注册
+                        </button>
+                    </div>
+                </form>
+
+                <!-- 登录链接 -->
+                <div class="auth-links">
+                    <p>已有账户？ <a href="{{ url_for('login') }}" class="link-primary">立即登录</a></p>
+                </div>
+
+                <!-- 注册说明 -->
+                <div class="register-info">
+                    <div class="info-card">
+                        <div class="info-icon">ℹ️</div>
+                        <div class="info-content">
+                            <h4>注册说明</h4>
+                            <ul>
+                                <li>注册后即可使用系统功能</li>
+                                <li>管理员权限需要联系系统管理员</li>
+                                <li>请妥善保管您的账户信息</li>
+                                <li>密码使用SHA256加密存储</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // 密码确认验证
+        document.getElementById('confirm_password').addEventListener('input', function() {
+            const password = document.getElementById('password').value;
+            const confirmPassword = this.value;
+            
+            if (password !== confirmPassword) {
+                this.setCustomValidity('密码不匹配');
+            } else {
+                this.setCustomValidity('');
+            }
+        });
+    </script>
+</body>
+</html> 

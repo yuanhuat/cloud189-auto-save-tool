@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔐 用户登录 - 云盘自动保存</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 应用头部 -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 class="app-title">🔐 用户登录</h1>
+                    <p class="app-subtitle">请输入您的用户名和密码</p>
+                </div>
+                <div class="header-right">
+                    <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                        🏠 返回首页
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主要内容 -->
+        <main class="main-content">
+            <!-- 消息提示 -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="message-container">
+                            <div class="message {{ 'success' if category == 'success' else 'error' if category == 'error' else 'info' }}">
+                                <span class="message-icon">
+                                    {% if category == 'success' %}✅
+                                    {% elif category == 'error' %}❌
+                                    {% else %}ℹ️{% endif %}
+                                </span>
+                                <span class="message-text">{{ message }}</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- 登录表单 -->
+            <div class="auth-container">
+                <form action="{{ url_for('login') }}" method="post" class="auth-form">
+                    <div class="form-section">
+                        <h3 class="section-title">🔑 登录信息</h3>
+                        <div class="input-group">
+                            <label for="username">用户名</label>
+                            <input type="text" id="username" name="username" 
+                                   placeholder="请输入用户名" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="password">密码</label>
+                            <input type="password" id="password" name="password" 
+                                   placeholder="请输入密码" required>
+                        </div>
+                    </div>
+
+                    <!-- 提交按钮 -->
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success btn-large">
+                            🔐 登录
+                        </button>
+                    </div>
+                </form>
+
+                <!-- 注册链接 -->
+                <div class="auth-links">
+                    <p>还没有账户？ <a href="{{ url_for('register') }}" class="link-primary">立即注册</a></p>
+                </div>
+
+                <!-- 默认账户信息 -->
+                <div class="default-account-info">
+                    <div class="info-card">
+                        <div class="info-icon">👤</div>
+                        <div class="info-content">
+                            <h4>默认管理员账户</h4>
+                            <p>用户名: <code>admin</code></p>
+                            <p>密码: <code>admin123</code></p>
+                            <small>⚠️ 首次登录后请及时修改密码</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html> 

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>👥 用户管理 - 云盘自动保存</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 应用头部 -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 class="app-title">👥 用户管理</h1>
+                    <p class="app-subtitle">管理系统用户账户</p>
+                </div>
+                <div class="header-right">
+                    <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                        🏠 返回首页
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主要内容 -->
+        <main class="main-content">
+            <!-- 消息提示 -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="message-container">
+                            <div class="message {{ 'success' if category == 'success' else 'error' if category == 'error' else 'info' }}">
+                                <span class="message-icon">
+                                    {% if category == 'success' %}✅
+                                    {% elif category == 'error' %}❌
+                                    {% else %}ℹ️{% endif %}
+                                </span>
+                                <span class="message-text">{{ message }}</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- 用户列表 -->
+            <div class="users-container">
+                <div class="section-header">
+                    <h3 class="section-title">👥 用户列表</h3>
+                    <div class="user-stats">
+                        <span class="stat-item">
+                            <span class="stat-label">总用户数:</span>
+                            <span class="stat-value">{{ users|length }}</span>
+                        </span>
+                        <span class="stat-item">
+                            <span class="stat-label">管理员:</span>
+                            <span class="stat-value">{{ users|selectattr('2', 'equalto', True)|list|length }}</span>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="users-grid">
+                    {% for user in users %}
+                    <div class="user-card">
+                        <div class="user-header">
+                            <div class="user-avatar">
+                                <span class="avatar-text">{{ user[1][0].upper() }}</span>
+                            </div>
+                            <div class="user-info">
+                                <h4 class="user-name">{{ user[1] }}</h4>
+                                <span class="user-id">ID: {{ user[0] }}</span>
+                            </div>
+                            <div class="user-status">
+                                {% if user[2] %}
+                                <span class="status-badge admin">👑 管理员</span>
+                                {% else %}
+                                <span class="status-badge user">👤 普通用户</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="user-details">
+                            <div class="detail-item">
+                                <span class="detail-label">注册时间:</span>
+                                <span class="detail-value">{{ user[3] }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">账户类型:</span>
+                                <span class="detail-value">
+                                    {% if user[2] %}管理员账户{% else %}普通账户{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                        {% if not user[2] or users|length > 1 %}
+                        <div class="user-actions">
+                            <form action="{{ url_for('delete_user_route', user_id=user[0]) }}" 
+                                  method="post" style="display: inline;"
+                                  onsubmit="return confirm('确定要删除用户 {{ user[1] }} 吗？')">
+                                <button type="submit" class="btn btn-danger btn-small">
+                                    🗑️ 删除
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% if users|length == 0 %}
+                <div class="no-users-section">
+                    <div class="empty-state">
+                        <div class="empty-icon">👥</div>
+                        <h3>暂无用户</h3>
+                        <p>系统中还没有任何用户账户</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 管理说明 -->
+            <div class="admin-info-section">
+                <h3 class="section-title">ℹ️ 管理说明</h3>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-icon">👑</div>
+                        <div class="info-content">
+                            <h4>管理员权限</h4>
+                            <p>管理员可以访问设置页面和用户管理</p>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-icon">👤</div>
+                        <div class="info-content">
+                            <h4>普通用户</h4>
+                            <p>普通用户只能使用基本功能</p>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-icon">⚠️</div>
+                        <div class="info-content">
+                            <h4>删除用户</h4>
+                            <p>删除用户操作不可恢复，请谨慎操作</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html> 

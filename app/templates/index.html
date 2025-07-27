@@ -11,10 +11,42 @@
         <!-- 顶部导航栏 -->
         <header class="app-header">
             <div class="header-content">
-                <h1 class="app-title">☁️ 云盘自动保存</h1>
-                <nav class="app-nav">
-                    <a href="{{ url_for('settings') }}" class="nav-link">⚙️ 设置</a>
-                </nav>
+                <div class="header-left">
+                    <h1 class="app-title">☁️ 云盘自动保存</h1>
+                    <p class="app-subtitle">智能云盘文件自动保存系统</p>
+                </div>
+                <div class="header-right">
+                    {% if user %}
+                        <div class="user-menu">
+                            <span class="user-info">
+                                👤 {{ user }}
+                                {% if is_admin %}<span class="admin-badge">👑</span>{% endif %}
+                            </span>
+                            <div class="user-dropdown">
+                                {% if is_admin %}
+                                <a href="{{ url_for('settings') }}" class="dropdown-item">
+                                    ⚙️ 系统设置
+                                </a>
+                                <a href="{{ url_for('users') }}" class="dropdown-item">
+                                    👥 用户管理
+                                </a>
+                                {% endif %}
+                                <a href="{{ url_for('logout') }}" class="dropdown-item">
+                                    🚪 退出登录
+                                </a>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="auth-buttons">
+                            <a href="{{ url_for('login') }}" class="btn btn-secondary">
+                                🔐 登录
+                            </a>
+                            <a href="{{ url_for('register') }}" class="btn btn-primary">
+                                📝 注册
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </header>
 
@@ -45,7 +77,11 @@
                                 <span class="status-icon">❌</span>
                                 <span>未配置</span>
                             </div>
-                            <a href="{{ url_for('settings') }}" class="config-link">点击配置</a>
+                            {% if user and is_admin %}
+                                <a href="{{ url_for('settings') }}" class="config-link">点击配置</a>
+                            {% else %}
+                                <span class="config-link disabled">需要管理员权限</span>
+                            {% endif %}
                         {% endif %}
                     </div>
                 </div>
