@@ -34,9 +34,17 @@ def init_db():
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             is_admin BOOLEAN DEFAULT FALSE,
+            has_logged_in BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    
+    # 如果表已存在但没有 has_logged_in 字段，则添加该字段
+    try:
+        cursor.execute('ALTER TABLE users ADD COLUMN has_logged_in BOOLEAN DEFAULT FALSE')
+    except sqlite3.OperationalError:
+        # 字段已存在，忽略错误
+        pass
     
     # 创建账号-目录映射表
     cursor.execute('''
@@ -165,6 +173,23 @@ def delete_user(user_id):
         return True
     except:
         return False
+
+def check_admin_first_login():
+    """检查管理员是否已经登录过"""
+    conn = sqlite3.connect('settings.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT has_logged_in FROM users WHERE username = "admin" AND is_admin = TRUE')
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else False
+
+def mark_admin_logged_in():
+    """标记管理员已经登录过"""
+    conn = sqlite3.connect('settings.db')
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET has_logged_in = TRUE WHERE username = "admin" AND is_admin = TRUE')
+    conn.commit()
+    conn.close()
 
 def save_account_directory(account_id, account_name, target_folder_id, target_folder_path, folder_name):
     """保存账号-目录映射"""
@@ -598,19 +623,27 @@ def login():
         
         if not username or not password:
             flash('请输入用户名和密码', 'error')
-            return render_template('login.html')
+            show_default_account = not check_admin_first_login()
+            return render_template('login.html', show_default_account=show_default_account)
         
         user = verify_user(username, password)
         if user:
             session['user_id'] = user[0]
             session['username'] = user[1]
             session['is_admin'] = user[2]
+            
+            # 如果是管理员且是第一次登录，标记为已登录
+            if user[2] and username == 'admin':
+                mark_admin_logged_in()
+            
             flash('登录成功！', 'success')
             return redirect(url_for('index'))
         else:
             flash('用户名或密码错误', 'error')
     
-    return render_template('login.html')
+    # 检查管理员是否已经登录过
+    show_default_account = not check_admin_first_login()
+    return render_template('login.html', show_default_account=show_default_account)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
