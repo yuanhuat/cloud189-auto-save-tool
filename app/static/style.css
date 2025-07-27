@@ -499,6 +499,39 @@ body {
     margin-top: 0.5rem;
 }
 
+/* 定时任务配置 */
+.cron-config {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: rgba(102, 126, 234, 0.05);
+    border: 1px solid rgba(102, 126, 234, 0.1);
+    border-radius: 8px;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.cron-examples {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 6px;
+    border-left: 3px solid #667eea;
+}
+
+.cron-examples small {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: #4a5568;
+}
+
+.cron-examples code {
+    background: #f7fafc;
+    padding: 0.125rem 0.25rem;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    color: #667eea;
+    font-size: 0.85rem;
+}
+
 /* 错误消息 */
 .error-message {
     color: #e53e3e;

@@ -110,7 +110,7 @@ def get_favorites(project_address, api_key, account_id):
         print(f"获取常用目录时出错: {e}")
         return []
 
-def create_task(project_address, api_key, share_link, account_id, target_folder_id, target_folder_path, overwrite_folder=False, selected_folders=None):
+def create_task(project_address, api_key, share_link, account_id, target_folder_id, target_folder_path, overwrite_folder=False, selected_folders=None, enable_cron=False, cron_expression=None):
     """调用API创建任务"""
     try:
         api_url = f"{project_address.rstrip('/')}/api/tasks"
@@ -129,6 +129,11 @@ def create_task(project_address, api_key, share_link, account_id, target_folder_
         # 如果提供了选中的文件夹，添加到请求中
         if selected_folders:
             data['selectedFolders'] = selected_folders
+        
+        # 添加定时任务参数
+        if enable_cron and cron_expression:
+            data['enableCron'] = enable_cron
+            data['cronExpression'] = cron_expression
             
         print(f"发送任务创建请求: {data}")
         response = requests.post(api_url, headers=headers, json=data, timeout=10)
@@ -255,6 +260,10 @@ def index():
             # 如果没有选择任何目录，默认选择所有目录（包括根目录）
             selected_folders = ['-1']  # -1表示根目录
 
+        # 获取定时任务参数
+        enable_cron = request.form.get('enable_cron') == 'on'
+        cron_expression = request.form.get('cron_expression', '').strip()
+
         print(f"任务创建参数:")
         print(f"  share_link: {share_link}")
         print(f"  account_id: {account_id}")
@@ -262,6 +271,8 @@ def index():
         print(f"  target_folder_path: {target_folder_path}")
         print(f"  overwrite_folder: {overwrite_folder}")
         print(f"  selected_folders: {selected_folders}")
+        print(f"  enable_cron: {enable_cron}")
+        print(f"  cron_expression: {cron_expression}")
 
         # 获取设置信息
         settings = get_settings()
@@ -278,9 +289,14 @@ def index():
         if not save_path:
             return render_template('index.html', message="请选择保存目录")
         
+        # 验证定时任务参数
+        if enable_cron and not cron_expression:
+            return render_template('index.html', message="启用定时任务时必须填写Cron表达式")
+        
         # 创建任务
         result = create_task(settings['project_address'], settings['api_key'],
-                           share_link, account_id, target_folder_id, target_folder_path, overwrite_folder, selected_folders)
+                           share_link, account_id, target_folder_id, target_folder_path, 
+                           overwrite_folder, selected_folders, enable_cron, cron_expression)
         
         # 获取账号信息用于显示
         accounts = get_accounts(settings['project_address'], settings['api_key'])
