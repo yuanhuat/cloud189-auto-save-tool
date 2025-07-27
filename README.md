@@ -217,6 +217,36 @@ TyCloud 是 [cloud189-auto-save](https://github.com/1307super/cloud189-auto-save
 - **API 密钥**: cloud189-auto-save 项目的 API 认证密钥
 - **TMDB API 密钥**: 用于获取影片信息的 TMDB API 密钥
 
+## 📸 界面预览
+
+### 🔐 用户认证
+
+#### 登录页面
+![登录页面](screenshots/01-login-page.png)
+
+#### 注册页面
+![注册页面](screenshots/02-register-page.png)
+
+### 🏠 主要功能
+
+#### 首页
+![首页](screenshots/03-home-page.png)
+
+#### 系统设置
+![系统设置页面](screenshots/04-settings-page.png)
+
+#### 用户管理
+![用户管理页面](screenshots/05-users-page.png)
+
+#### 账号目录映射
+![账号目录映射页面](screenshots/06-account-directories-page.png)
+
+#### 任务管理
+![任务管理页面](screenshots/07-tasks-page.png)
+
+#### 自动删除配置
+![自动删除配置页面](screenshots/08-auto-delete-page.png)
+
 ## 📁 项目结构
 
 ```
