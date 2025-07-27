@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设置</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>设置</h1>
+        
+        {% if message %}
+        <div class="message">{{ message }}</div>
+        {% endif %}
+        
+        <form action="/settings" method="post">
+            <label for="project_address">项目地址:</label>
+            <input type="text" id="project_address" name="project_address" 
+                   placeholder="请输入项目地址" 
+                   value="{{ settings.project_address if settings else '' }}">
+            <label for="api_key">API Key:</label>
+            <input type="text" id="api_key" name="api_key" 
+                   placeholder="请输入API Key" 
+                   value="{{ settings.api_key if settings else '' }}">
+            <button type="submit">保存设置</button>
+        </form>
+        
+        <!-- 账号信息显示区域 -->
+        {% if accounts %}
+        <div class="accounts-section">
+            <h3>账号信息</h3>
+            <div class="accounts-list">
+                {% for account in accounts %}
+                <div class="account-item">
+                    <span class="account-id">ID: {{ account.id }}</span>
+                    <span class="account-username">用户名: {{ account.username }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <p><a href="{{ url_for('index') }}">返回首页</a></p>
+    </div>
+</body>
+</html>

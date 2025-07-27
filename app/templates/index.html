@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>云盘自动保存</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>云盘自动保存</h1>
+        {% if message %}
+        <div class="message {% if task_result and task_result.success %}success{% else %}error{% endif %}">
+            {{ message }}
+        </div>
+        {% endif %}
+        
+        <!-- 显示当前设置信息 -->
+        {% if settings and (settings.project_address or settings.api_key) %}
+        <div class="current-settings">
+            <h3>当前设置</h3>
+            {% if settings.project_address %}
+            <p><strong>项目地址:</strong> {{ settings.project_address }}</p>
+            {% endif %}
+            {% if settings.api_key %}
+            <p><strong>API Key:</strong> {{ settings.api_key[:8] }}...</p>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <!-- 账号信息显示区域 -->
+        {% if accounts %}
+        <div class="accounts-section">
+            <h3>账号信息</h3>
+            <div class="accounts-list">
+                {% for account in accounts %}
+                <div class="account-item">
+                    <span class="account-id">ID: {{ account.id }}</span>
+                    <span class="account-username">用户名: {{ account.username }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- 任务创建表单 -->
+        <form action="/" method="post" id="taskForm">
+            <label for="share_link">分享链接:</label>
+            <input type="text" id="share_link" name="share_link" placeholder="请输入分享链接" required>
+            
+            {% if accounts %}
+            <label for="account_id">选择账号:</label>
+            <select id="account_id" name="account_id" required onchange="loadFavorites()">
+                <option value="">请选择账号</option>
+                {% for account in accounts %}
+                <option value="{{ account.id }}">{{ account.username }} (ID: {{ account.id }})</option>
+                {% endfor %}
+            </select>
+            
+            <label for="save_path">保存目录:</label>
+            <div class="directory-selection">
+                <select id="save_path" name="save_path" required>
+                    <option value="">请先选择账号</option>
+                </select>
+                <button type="button" id="browseDirectories" onclick="showDirectoryBrowser()" style="display: none;">
+                    浏览目录
+                </button>
+            </div>
+            
+            <div class="overwrite-option">
+                <label>
+                    <input type="checkbox" id="overwrite_folder" name="overwrite_folder">
+                    覆盖已存在的文件夹
+                </label>
+            </div>
+            
+            <!-- 目录浏览器 -->
+            <div id="directoryBrowser" class="directory-browser" style="display: none;">
+                <div class="directory-browser-header">
+                    <h4>目录浏览器</h4>
+                    <button type="button" onclick="hideDirectoryBrowser()" class="close-btn">×</button>
+                </div>
+                <div class="directory-browser-content">
+                    <div class="directory-path">
+                        <span>当前路径: </span>
+                        <span id="currentPath">/</span>
+                    </div>
+                    <div class="directory-list" id="directoryList">
+                        <!-- 目录列表将在这里动态加载 -->
+                    </div>
+                    <div class="directory-browser-actions">
+                        <button type="button" onclick="goToParentDirectory()">返回上级</button>
+                        <button type="button" onclick="selectCurrentDirectory()">选择当前目录</button>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="no-accounts">
+                <p>没有可用的账号，请先在设置页面配置API信息</p>
+            </div>
+            {% endif %}
+            
+            <button type="submit">创建任务</button>
+        </form>
+        
+        <p><a href="{{ url_for('settings') }}">设置</a></p>
+    </div>
+
+    <script>
+        let currentDirectoryPath = '/';
+        let currentFolderId = '-11';
+        let folderPathMap = new Map(); // 存储folderId到路径的映射
+        
+        function loadFavorites() {
+            const accountId = document.getElementById('account_id').value;
+            const savePathSelect = document.getElementById('save_path');
+            const browseBtn = document.getElementById('browseDirectories');
+            
+            if (!accountId) {
+                savePathSelect.innerHTML = '<option value="">请先选择账号</option>';
+                browseBtn.style.display = 'none';
+                return;
+            }
+            
+            // 清空选项
+            savePathSelect.innerHTML = '<option value="">加载中...</option>';
+            
+            // 调用API获取常用目录
+            fetch(`/api/favorites/${accountId}`)
+                .then(response => response.json())
+                .then(data => {
+                    savePathSelect.innerHTML = '<option value="">请选择保存目录</option>';
+                    
+                    if (data.success && data.data.length > 0) {
+                        data.data.forEach(favorite => {
+                            const option = document.createElement('option');
+                            // 常用目录使用"folderId|path"格式
+                            option.value = `${favorite.folderId || favorite.path}|${favorite.path}`;
+                            option.textContent = `${favorite.name} (${favorite.path})`;
+                            savePathSelect.appendChild(option);
+                        });
+                        browseBtn.style.display = 'none';
+                    } else {
+                        savePathSelect.innerHTML = '<option value="">没有可用的常用目录</option>';
+                        browseBtn.style.display = 'inline-block';
+                    }
+                })
+                .catch(error => {
+                    console.error('获取常用目录失败:', error);
+                    savePathSelect.innerHTML = '<option value="">获取目录失败</option>';
+                    browseBtn.style.display = 'inline-block';
+                });
+        }
+        
+        function showDirectoryBrowser() {
+            const browser = document.getElementById('directoryBrowser');
+            browser.style.display = 'block';
+            // 重置状态
+            currentFolderId = '-11';
+            currentDirectoryPath = '/';
+            folderPathMap.clear();
+            folderPathMap.set('-11', '/');
+            loadDirectoryTree();
+        }
+        
+        function hideDirectoryBrowser() {
+            const browser = document.getElementById('directoryBrowser');
+            browser.style.display = 'none';
+        }
+        
+        function loadDirectoryTree() {
+            const accountId = document.getElementById('account_id').value;
+            const directoryList = document.getElementById('directoryList');
+            const currentPathSpan = document.getElementById('currentPath');
+            
+            currentPathSpan.textContent = currentDirectoryPath;
+            directoryList.innerHTML = '<div class="loading">加载中...</div>';
+            
+            fetch(`/api/directories/${accountId}?folderId=${encodeURIComponent(currentFolderId)}`)
+                .then(response => response.json())
+                .then(data => {
+                    directoryList.innerHTML = '';
+                    
+                    if (data.success && data.data.length > 0) {
+                        data.data.forEach(item => {
+                            const dirItem = document.createElement('div');
+                            dirItem.className = 'directory-item';
+                            dirItem.onclick = () => enterDirectory(item.id, item.name);
+                            
+                            const icon = document.createElement('span');
+                            icon.className = 'directory-icon';
+                            icon.textContent = '📁';
+                            
+                            const name = document.createElement('span');
+                            name.className = 'directory-name';
+                            name.textContent = item.name;
+                            
+                            dirItem.appendChild(icon);
+                            dirItem.appendChild(name);
+                            directoryList.appendChild(dirItem);
+                        });
+                    } else {
+                        directoryList.innerHTML = '<div class="no-directories">当前目录为空</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('获取目录树失败:', error);
+                    directoryList.innerHTML = '<div class="error">获取目录失败</div>';
+                });
+        }
+        
+        function enterDirectory(folderId, folderName) {
+            // 更新路径
+            if (currentFolderId === '-11') {
+                currentDirectoryPath = '/' + folderName;
+            } else {
+                currentDirectoryPath = currentDirectoryPath + '/' + folderName;
+            }
+            
+            // 存储路径映射
+            folderPathMap.set(folderId, currentDirectoryPath);
+            
+            currentFolderId = folderId;
+            loadDirectoryTree();
+        }
+        
+        function goToParentDirectory() {
+            if (currentFolderId === '-11') {
+                return;
+            }
+            
+            // 从路径映射中找到父级目录
+            const pathParts = currentDirectoryPath.split('/').filter(part => part);
+            pathParts.pop();
+            currentDirectoryPath = '/' + pathParts.join('/');
+            if (currentDirectoryPath === '') {
+                currentDirectoryPath = '/';
+            }
+            
+            // 这里需要根据实际API返回的数据结构来确定父级folderId
+            // 暂时使用-11作为根目录
+            currentFolderId = '-11';
+            loadDirectoryTree();
+        }
+        
+        function selectCurrentDirectory() {
+            const savePathSelect = document.getElementById('save_path');
+            const currentPathSpan = document.getElementById('currentPath');
+            
+            // 添加当前目录到选择列表，使用"folderId|path"格式
+            const option = document.createElement('option');
+            option.value = `${currentFolderId}|${currentDirectoryPath}`;
+            option.textContent = `当前目录 (${currentDirectoryPath})`;
+            option.selected = true;
+            
+            savePathSelect.innerHTML = '';
+            savePathSelect.appendChild(option);
+            
+            hideDirectoryBrowser();
+        }
+    </script>
+</body>
+</html>
