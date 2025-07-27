@@ -13,7 +13,7 @@ app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)  # 生成随机密钥用于session
 
 # 数据库路径常量
-DB_PATH = 'app/database/settings.db'
+DB_PATH = 'instance/settings.db'
 
 def init_db():
     """初始化数据库"""
