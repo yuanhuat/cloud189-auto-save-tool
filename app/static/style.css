@@ -3375,3 +3375,101 @@ input:checked + .slider:before {
     text-decoration: none;
     cursor: pointer;
 }
+
+/* 编辑任务模态框样式 */
+.edit-task-modal .modal-header {
+    background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+    border-bottom: 1px solid #93c5fd;
+}
+
+.edit-task-modal .modal-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.edit-task-modal .form-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.edit-task-modal .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.edit-task-modal .form-group label {
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.95rem;
+}
+
+.edit-task-modal .form-control {
+    padding: 0.75rem 1rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: white;
+    transition: all 0.2s ease;
+    width: 100%; /* Make inputs take full width */
+}
+
+.edit-task-modal .form-control:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.edit-task-modal textarea.form-control {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.edit-task-modal .form-help-text {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+    line-height: 1.4;
+}
+
+.edit-task-modal .modal-footer {
+    justify-content: flex-end;
+}
+
+/* Checkbox group styling */
+.edit-task-modal .checkbox-group {
+    flex-direction: row; /* Align label and checkbox horizontally */
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.edit-task-modal .checkbox-label {
+    margin-bottom: 0; /* Remove extra margin for this specific checkbox */
+    padding: 0.5rem 0; /* Adjust padding for better alignment */
+    border: none;
+    background: none;
+}
+
+.edit-task-modal .checkbox-label:hover {
+    background: none;
+    border-color: none;
+}
+
+.edit-task-modal .checkbox-label .checkmark {
+    border-color: #9ca3af;
+}
+
+.edit-task-modal .checkbox-label input:checked ~ .checkmark {
+    background-color: #667eea;
+    border-color: #667eea;
+}
+
+/* Ensure form buttons look consistent */
+.edit-task-modal .btn-primary,
+.edit-task-modal .btn-secondary {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+    border-radius: 8px;
+}

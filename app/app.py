@@ -1092,6 +1092,77 @@ def delete_tasks_batch():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/tasks/<int:task_id>/execute', methods=['POST'])
+@admin_required
+def execute_single_task(task_id):
+    """执行单个任务"""
+    try:
+        settings = get_settings()
+        project_address = settings.get('project_address')
+        api_key = settings.get('api_key')
+        
+        if not project_address or not api_key:
+            return jsonify({'success': False, 'error': '请先配置项目地址和API密钥'})
+        
+        headers = {'x-api-key': api_key, 'Content-Type': 'application/json'}
+        response = requests.post(
+            f"{project_address.rstrip('/')}/api/tasks/{task_id}/execute",
+            headers=headers
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            return jsonify(data)
+        else:
+            return jsonify({'success': False, 'error': f'执行失败: {response.status_code}'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/tasks/<int:task_id>', methods=['PUT'])
+@admin_required
+def update_task_api(task_id):
+    """更新任务"""
+    try:
+        settings = get_settings()
+        project_address = settings.get('project_address')
+        api_key = settings.get('api_key')
+
+        if not project_address or not api_key:
+            return jsonify({'success': False, 'error': '请先配置项目地址和API密钥'})
+
+        data = request.get_json()
+        updates = {}
+        # 允许更新的字段
+        allowed_fields = [
+            'resourceName', 'realFolderId', 'currentEpisodes', 'totalEpisodes', 
+            'status', 'realFolderName', 'shareFolderName', 'shareFolderId', 
+            'matchPattern', 'matchOperator', 'matchValue', 'remark', 
+            'enableCron', 'cronExpression', 'enableTaskScraper'
+        ]
+        for field in allowed_fields:
+            if field in data:
+                updates[field] = data[field]
+        
+        if not updates:
+            return jsonify({'success': False, 'message': '没有提供更新数据'})
+
+        headers = {'x-api-key': api_key, 'Content-Type': 'application/json'}
+        response = requests.put(
+            f"{project_address.rstrip('/')}/api/tasks/{task_id}",
+            headers=headers,
+            json=updates
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            return jsonify(result)
+        else:
+            return jsonify({'success': False, 'message': f'更新失败: {response.status_code}'})
+
+    except Exception as e:
+        print(f"更新任务时出错: {e}")
+        return jsonify({'success': False, 'message': f'更新任务时出错: {str(e)}'})
+
 # 自动删除配置管理函数
 def get_auto_delete_configs():
     """获取自动删除配置"""
