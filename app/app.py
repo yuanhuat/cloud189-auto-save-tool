@@ -411,23 +411,26 @@ def get_accounts(project_address, api_key):
         if response.status_code == 200:
             data = response.json()
             if data.get('success'):
-                return data.get('data', [])
+                return {'success': True, 'data': data.get('data', [])}
             else:
                 print(f"API返回错误: {data}")
-                return []
+                return {'success': False, 'message': data.get('message', 'API返回错误')}
+        elif response.status_code == 401:
+            print(f"API认证失败，状态码: {response.status_code}")
+            return {'success': False, 'message': 'API密钥无效或已过期'}
         else:
             print(f"API请求失败，状态码: {response.status_code}")
-            return []
+            return {'success': False, 'message': f'API请求失败，状态码: {response.status_code}'}
             
     except requests.exceptions.RequestException as e:
         print(f"API请求异常: {e}")
-        return []
+        return {'success': False, 'message': f'网络连接异常: {str(e)}'}
     except json.JSONDecodeError as e:
         print(f"JSON解析错误: {e}")
-        return []
+        return {'success': False, 'message': '响应格式错误'}
     except Exception as e:
         print(f"获取账号信息时出错: {e}")
-        return []
+        return {'success': False, 'message': f'未知错误: {str(e)}'}
 
 def get_favorites(project_address, api_key, account_id):
     """调用API获取常用目录"""
@@ -695,7 +698,8 @@ def index():
                                overwrite_folder, selected_folders, enable_cron, cron_expression)
         
         # 获取账号信息用于显示
-        accounts = get_accounts(settings['project_address'], settings['api_key'])
+        accounts_result = get_accounts(settings['project_address'], settings['api_key'])
+        accounts = accounts_result.get('data', []) if accounts_result.get('success') else []
         
         return render_template('index.html', 
                              settings=settings, 
@@ -709,7 +713,8 @@ def index():
     # 如果有设置信息，尝试获取账号信息
     accounts = []
     if settings.get('project_address') and settings.get('api_key'):
-        accounts = get_accounts(settings['project_address'], settings['api_key'])
+        accounts_result = get_accounts(settings['project_address'], settings['api_key'])
+        accounts = accounts_result.get('data', []) if accounts_result.get('success') else []
     
     return render_template('index.html', settings=settings, accounts=accounts, 
                          user=session.get('username'), is_admin=session.get('is_admin'))
@@ -856,7 +861,8 @@ def account_directories():
     settings = get_settings()
     accounts = []
     if settings.get('project_address') and settings.get('api_key'):
-        accounts = get_accounts(settings['project_address'], settings['api_key'])
+        accounts_result = get_accounts(settings['project_address'], settings['api_key'])
+        accounts = accounts_result.get('data', []) if accounts_result.get('success') else []
     return render_template('account_directories.html', mappings=mappings, accounts=accounts, settings=settings)
 
 @app.route('/account-directories/save', methods=['POST'])
@@ -924,7 +930,8 @@ def settings():
         print(f"Project Address: {project_address}, API Key: {api_key}")
         
         # 保存后立即获取账号信息
-        accounts = get_accounts(project_address, api_key)
+        accounts_result = get_accounts(project_address, api_key)
+        accounts = accounts_result.get('data', []) if accounts_result.get('success') else []
         
         # 获取当前设置信息并显示在表单中
         current_settings = get_settings()
@@ -936,7 +943,8 @@ def settings():
     # 如果有设置信息，尝试获取账号信息
     accounts = []
     if current_settings.get('project_address') and current_settings.get('api_key'):
-        accounts = get_accounts(current_settings['project_address'], current_settings['api_key'])
+        accounts_result = get_accounts(current_settings['project_address'], current_settings['api_key'])
+        accounts = accounts_result.get('data', []) if accounts_result.get('success') else []
     
     return render_template('settings.html', settings=current_settings, accounts=accounts)
 
@@ -948,8 +956,8 @@ def get_accounts_api():
     if not settings.get('project_address') or not settings.get('api_key'):
         return jsonify({'success': False, 'message': '请先配置项目地址和API Key'})
     
-    accounts = get_accounts(settings['project_address'], settings['api_key'])
-    return jsonify({'success': True, 'data': accounts})
+    result = get_accounts(settings['project_address'], settings['api_key'])
+    return jsonify(result)
 
 @app.route('/api/favorites/<int:account_id>')
 @login_required
@@ -970,8 +978,8 @@ def refresh_accounts():
     if not settings.get('project_address') or not settings.get('api_key'):
         return jsonify({'success': False, 'message': '请先配置项目地址和API Key'})
     
-    accounts = get_accounts(settings['project_address'], settings['api_key'])
-    return jsonify({'success': True, 'data': accounts})
+    result = get_accounts(settings['project_address'], settings['api_key'])
+    return jsonify(result)
 
 @app.route('/test-directory')
 @login_required
