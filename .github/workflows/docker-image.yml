@@ -15,8 +15,9 @@ jobs:
     
     - name: Build the Docker image
       run: |
-        docker build . --file Dockerfile --tag ${{ secrets.DOCKERHUB_USERNAME }}/my-image-name:latest
-        docker tag ${{ secrets.DOCKERHUB_USERNAME }}/my-image-name:latest ${{ secrets.DOCKERHUB_USERNAME }}/my-image-name:$(date +%s)
+        # 保持镜像名称一致（使用cloud189-auto-save-tool）
+        docker build . --file Dockerfile --tag ${{ secrets.DOCKERHUB_USERNAME }}/cloud189-auto-save-tool:latest
+        docker tag ${{ secrets.DOCKERHUB_USERNAME }}/cloud189-auto-save-tool:latest ${{ secrets.DOCKERHUB_USERNAME }}/cloud189-auto-save-tool:$(date +%s)
     
     - name: Login to DockerHub
       uses: docker/login-action@v3
