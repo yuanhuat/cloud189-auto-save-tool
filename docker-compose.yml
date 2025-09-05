@@ -11,7 +11,8 @@ services:
       - ./data:/app/data
     environment:
       - FLASK_ENV=production
-      - FLASK_APP=app.py
+      - PYTHONPATH=/app
+    command: python app/app.py
     restart: unless-stopped
     networks:
       - tycloud-network

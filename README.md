@@ -160,6 +160,26 @@ TyCloud 是 [cloud189-auto-save](https://github.com/1307super/cloud189-auto-save
    docker-compose down
    ```
 
+#### 故障排除
+
+如果遇到 "Failed to find Flask application or factory in module 'app'" 错误，这是因为Flask应用位于 `app/app.py` 路径下。Docker Compose 配置已经处理了这个问题：
+
+- 使用 `command: python app/app.py` 直接运行Python文件
+- 设置 `PYTHONPATH=/app` 确保模块路径正确
+
+如果仍有问题，可以手动进入容器检查：
+```bash
+# 进入运行中的容器
+docker exec -it tycloud-app /bin/bash
+
+# 检查文件结构
+ls -la /app/
+ls -la /app/app/
+
+# 手动运行应用
+cd /app && python app/app.py
+```
+
 #### 方法二：手动构建和运行
 
 1. **构建镜像**
