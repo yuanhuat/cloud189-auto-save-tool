@@ -7,12 +7,25 @@ on:
     branches: [ "master" ]
 
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
-
+    
     steps:
     - uses: actions/checkout@v4
+    
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+      run: |
+        docker build . --file Dockerfile --tag ${{ secrets.DOCKERHUB_USERNAME }}/my-image-name:latest
+        docker tag ${{ secrets.DOCKERHUB_USERNAME }}/my-image-name:latest ${{ secrets.DOCKERHUB_USERNAME }}/my-image-name:$(date +%s)
+    
+    - name: Login to DockerHub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    
+    - name: Push the Docker image
+      run: |
+        docker push ${{ secrets.DOCKERHUB_USERNAME }}/cloud189-auto-save-tool:latest
+        docker push ${{ secrets.DOCKERHUB_USERNAME }}/cloud189-auto-save-tool:$(date +%s)
+    
