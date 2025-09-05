@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  tycloud:
+    image: yuanhu66/cloud189-auto-save-tool:latest
+    container_name: tycloud-app
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./instance:/app/instance
+      - ./data:/app/data
+    environment:
+      - FLASK_ENV=production
+      - FLASK_APP=app.py
+    restart: unless-stopped
+    networks:
+      - tycloud-network
+
+networks:
+  tycloud-network:
+    driver: bridge
+
+volumes:
+  instance_data:
+    driver: local
+  app_data:
+    driver: local

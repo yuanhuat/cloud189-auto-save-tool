@@ -137,6 +137,31 @@ TyCloud 是 [cloud189-auto-save](https://github.com/1307super/cloud189-auto-save
 
 ### Docker 部署
 
+#### 方法一：使用 Docker Compose（推荐）
+
+1. **使用预构建镜像**
+   ```bash
+   # 直接使用 Docker Compose 启动
+   docker-compose up -d
+   ```
+
+2. **查看运行状态**
+   ```bash
+   docker-compose ps
+   ```
+
+3. **查看日志**
+   ```bash
+   docker-compose logs -f tycloud
+   ```
+
+4. **停止服务**
+   ```bash
+   docker-compose down
+   ```
+
+#### 方法二：手动构建和运行
+
 1. **构建镜像**
    ```bash
    docker build -t tycloud .
@@ -144,8 +169,19 @@ TyCloud 是 [cloud189-auto-save](https://github.com/1307super/cloud189-auto-save
 
 2. **运行容器**
    ```bash
-   docker run -p 5000:5000 tycloud
+   docker run -p 5000:5000 -v ./instance:/app/instance tycloud
    ```
+
+#### 方法三：直接使用预构建镜像
+
+```bash
+docker run -d \
+  --name tycloud-app \
+  -p 5000:5000 \
+  -v ./instance:/app/instance \
+  -v ./data:/app/data \
+  yuanhu66/cloud189-auto-save-tool:latest
+```
 
 ## 📖 使用指南
 
@@ -321,4 +357,4 @@ tycloud/
 
 ---
 
-**注意**: 本项目仅供学习和个人使用，请遵守相关服务条款和法律法规。 
+**注意**: 本项目仅供学习和个人使用，请遵守相关服务条款和法律法规。
